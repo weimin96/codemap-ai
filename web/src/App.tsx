@@ -8,11 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { MermaidPanel } from '@/components/MermaidPanel';
-import type { Report, ScanFile, SymbolInfo } from '@/types';
+import type { Report, RepoMap, ScanFile, SymbolInfo } from '@/types';
 
 interface ProjectPayload {
   projectDir: string;
-  scan: { files: ScanFile[]; keyFiles: ScanFile[]; totalFiles: number; totalDirs: number; totalSymbols?: number; summary: { stack: string[] } };
+  scan: { files: ScanFile[]; keyFiles: ScanFile[]; totalFiles: number; totalDirs: number; totalSymbols?: number; repoMap?: RepoMap; summary: { stack: string[] } };
   report: Report;
 }
 
@@ -157,6 +157,14 @@ export default function App() {
     });
   };
 
+  function exportContextPack() {
+    window.location.href = '/api/context-pack?format=markdown';
+  }
+
+  function exportRepoMap() {
+    window.location.href = '/api/repo-map?download=1';
+  }
+
   function openSymbol(symbol: SymbolInfo) {
     setCurrentSymbol(symbol);
     setSelection({ startLine: symbol.startLine, endLine: symbol.endLine });
@@ -187,6 +195,8 @@ export default function App() {
         <div className="flex items-center gap-2">
           <Badge variant="outline">{payload?.scan?.totalFiles || 0} files</Badge>
           <Badge variant="outline">{payload?.scan?.totalSymbols || 0} symbols</Badge>
+          <Badge variant="outline">{payload?.scan?.repoMap?.importantFiles?.length || 0} map</Badge>
+          <Button size="sm" variant="outline" onClick={exportRepoMap}>导出 Repo Map</Button>
           <Button size="sm" variant="outline" onClick={rescan} disabled={!!loading}><RefreshCw size={14} />重新扫描</Button>
           <Button size="sm" onClick={analyze} disabled={!!loading}><Sparkles size={14} />开始 AI 分析</Button>
         </div>
@@ -224,6 +234,18 @@ export default function App() {
                     <Badge variant={confidenceVariant(flow.confidence) as any}>{flow.confidence}</Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">{flow.trigger}</div>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><GitBranch size={16} />Repo Map</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-xs">
+              {payload?.scan?.repoMap?.importantFiles?.slice(0, 8).map((file) => (
+                <button key={file.path} onClick={() => openFile(file.path)} className="w-full rounded-md border p-2 text-left hover:bg-accent">
+                  <div className="truncate font-mono">{file.path}</div>
+                  <div className="text-[10px] text-muted-foreground">{file.priority} · score {file.importance} · {file.symbols.length} symbols</div>
                 </button>
               ))}
             </CardContent>
@@ -319,6 +341,25 @@ export default function App() {
               </div>
               <Textarea value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="围绕当前文件/链路追问，例如：这个状态在哪里被修改？" />
               <Button className="w-full" onClick={() => ask()} disabled={!!loading}>{loading === 'ask' ? <Loader2 className="animate-spin" size={16} /> : <Play size={16} />}追问</Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-sm"><FileCode2 size={16} />分析上下文</CardTitle>
+              <CardDescription>AI 分析会优先使用 Repo Map 和以下上下文文件。</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button size="sm" variant="outline" onClick={exportContextPack}>导出 project-context.md</Button>
+              <div className="space-y-1 max-h-56 overflow-auto">
+                {(report?.contextFiles || []).slice(0, 24).map((file) => (
+                  <button key={file.path} onClick={() => openFile(file.path)} className="w-full rounded-md border p-2 text-left text-xs hover:bg-accent">
+                    <div className="truncate font-mono">{file.path}</div>
+                    <div className="text-[10px] text-muted-foreground">{file.priority} · score {file.score} · {file.charCount} chars{file.truncated ? ' · truncated' : ''}</div>
+                  </button>
+                ))}
+                {!report?.contextFiles?.length && <div className="text-xs text-muted-foreground">开始 AI 分析后显示本次使用的上下文文件。</div>}
+              </div>
             </CardContent>
           </Card>
 

@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { IGNORE_DIRS, isProbablyText, toPosix, readTextFileSafe } from './fs-utils.js';
 import { canExtractSymbols, extractSymbols } from './symbol-indexer.js';
+import { loadIgnoreRules } from './ignore-rules.js';
+import { buildRepoMap } from './repo-map.js';
 
 const ENTRY_PATTERNS = [
   /(^|\/)main\.(ts|js|go|py|rs|java|kt|cs)$/i,
@@ -57,7 +59,7 @@ function filePriority(relPath) {
   return 'P3';
 }
 
-async function walk(root, dir = '', depth = 0, maxDepth = 8, result = []) {
+async function walk(root, dir = '', depth = 0, maxDepth = 8, result = [], shouldIgnore = () => false) {
   if (depth > maxDepth) return result;
   const absolute = path.join(root, dir);
   let entries = [];
@@ -71,9 +73,10 @@ async function walk(root, dir = '', depth = 0, maxDepth = 8, result = []) {
     if (IGNORE_DIRS.has(entry.name)) continue;
     const rel = path.join(dir, entry.name);
     const posix = toPosix(rel);
+    if (shouldIgnore(posix, entry.isDirectory())) continue;
     if (entry.isDirectory()) {
       result.push({ path: posix, type: 'dir', depth, role: guessDirRole(posix), priority: guessDirPriority(posix) });
-      await walk(root, rel, depth + 1, maxDepth, result);
+      await walk(root, rel, depth + 1, maxDepth, result, shouldIgnore);
     } else if (entry.isFile()) {
       const absoluteFile = path.join(root, rel);
       const stat = await fs.stat(absoluteFile);
@@ -140,21 +143,25 @@ export function languageFromPath(file) {
 }
 
 export async function scanProject(root) {
-  const items = await walk(root);
+  const shouldIgnore = await loadIgnoreRules(root);
+  const items = await walk(root, '', 0, 8, [], shouldIgnore);
   const files = items.filter((item) => item.type === 'file');
   const dirs = items.filter((item) => item.type === 'dir');
   const symbols = files.flatMap((file) => file.symbols || []);
   const keyFiles = pickKeyFiles(files);
   const summary = inferSummary(files);
+  const scannedAt = new Date().toISOString();
+  const repoMap = buildRepoMap({ root, files, symbols, summary, scannedAt });
   return {
     root,
-    scannedAt: new Date().toISOString(),
+    scannedAt,
     totalFiles: files.length,
     totalDirs: dirs.length,
     totalSymbols: symbols.length,
     tree: compactTree(items, 320),
     files,
     symbols,
+    repoMap,
     keyFiles,
     summary
   };

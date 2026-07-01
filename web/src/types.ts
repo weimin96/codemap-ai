@@ -24,6 +24,34 @@ export interface ScanFile {
   symbols?: SymbolInfo[];
 }
 
+export interface RepoMapFile {
+  path: string;
+  role: string;
+  priority: Priority;
+  language: string;
+  size: number;
+  importance: number;
+  symbols: Array<Pick<SymbolInfo, 'name' | 'kind' | 'startLine' | 'endLine' | 'signature'>>;
+}
+
+export interface ContextFile {
+  path: string;
+  role: string;
+  priority: Priority;
+  language: string;
+  score: number;
+  charCount: number;
+  truncated?: boolean;
+}
+
+export interface RepoMap {
+  generatedAt: string;
+  totals: { files: number; textFiles: number; symbols: number };
+  entrypoints: RepoMapFile[];
+  importantFiles: RepoMapFile[];
+  modules: Array<{ name: string; fileCount: number; symbolCount: number; priority: Priority; topFiles: string[]; roles: string[] }>;
+}
+
 export interface Report {
   generatedBy: 'ai' | 'heuristic' | string;
   projectOverview: {
@@ -52,4 +80,5 @@ export interface Report {
   readingPlan: Array<{ timebox: string; goal: string; files: string[]; output: string }>;
   unknowns: string[];
   mermaid?: string;
+  contextFiles?: ContextFile[];
 }

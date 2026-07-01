@@ -3,11 +3,12 @@ import path from 'node:path';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { fileURLToPath } from 'node:url';
-import { scanProject, readContextBundle } from './scanner.js';
+import { scanProject } from './scanner.js';
 import { buildHeuristicReport } from './heuristic.js';
 import { readTextFileSafe, ensureInside, isProbablyText, toPosix } from './fs-utils.js';
 import { analyzeWithAI, askWithAI } from './ai.js';
 import { readConfig, writeConfig, redactConfig } from './config-store.js';
+import { buildContextPack } from './context-pack.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, '..');
@@ -15,7 +16,8 @@ const webRoot = path.join(packageRoot, 'web');
 
 let cache = {
   scan: null,
-  report: null
+  report: null,
+  contextPack: null
 };
 
 export async function startServer({ projectDir, port, host }) {
@@ -58,6 +60,7 @@ export async function startServer({ projectDir, port, host }) {
     try {
       cache.scan = await scanProject(projectDir);
       cache.report = buildHeuristicReport(cache.scan);
+      cache.contextPack = null;
       res.json({ projectDir, scan: cache.scan, report: cache.report });
     } catch (error) { next(error); }
   });
@@ -66,10 +69,35 @@ export async function startServer({ projectDir, port, host }) {
     try {
       if (!cache.scan) cache.scan = await scanProject(projectDir);
       const config = { ...(await readConfig()), ...(req.body?.config || {}) };
-      const chunks = await readContextBundle(projectDir, cache.scan.keyFiles, 32);
-      const report = await analyzeWithAI({ scan: cache.scan, chunks, config });
-      cache.report = normalizeReport(report);
-      res.json({ report: cache.report });
+      cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan });
+      const report = await analyzeWithAI({ scan: cache.scan, chunks: cache.contextPack.chunks, contextPack: cache.contextPack, config });
+      cache.report = normalizeReport(report, cache.contextPack);
+      res.json({ report: cache.report, contextPack: summarizeContextPack(cache.contextPack) });
+    } catch (error) { next(error); }
+  });
+
+  app.get('/api/repo-map', async (req, res, next) => {
+    try {
+      if (!cache.scan) cache.scan = await scanProject(projectDir);
+      if (req.query.download === '1') {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="repo-map.json"');
+        return res.send(JSON.stringify(cache.scan.repoMap || {}, null, 2));
+      }
+      res.json(cache.scan.repoMap || {});
+    } catch (error) { next(error); }
+  });
+
+  app.get('/api/context-pack', async (req, res, next) => {
+    try {
+      if (!cache.scan) cache.scan = await scanProject(projectDir);
+      if (!cache.contextPack) cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan });
+      if (req.query.format === 'markdown') {
+        res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="project-context.md"');
+        return res.send(cache.contextPack.markdown);
+      }
+      res.json(summarizeContextPack(cache.contextPack));
     } catch (error) { next(error); }
   });
 
@@ -123,7 +151,7 @@ export async function startServer({ projectDir, port, host }) {
   });
 }
 
-function normalizeReport(report) {
+function normalizeReport(report, contextPack = null) {
   return {
     generatedBy: report.generatedBy || 'ai',
     projectOverview: report.projectOverview || {},
@@ -133,7 +161,24 @@ function normalizeReport(report) {
     risks: Array.isArray(report.risks) ? report.risks : [],
     readingPlan: Array.isArray(report.readingPlan) ? report.readingPlan : [],
     unknowns: Array.isArray(report.unknowns) ? report.unknowns : [],
-    mermaid: typeof report.mermaid === 'string' ? report.mermaid : 'flowchart TD\n  A[触发] --> B[入口]'
+    mermaid: typeof report.mermaid === 'string' ? report.mermaid : 'flowchart TD\n  A[触发] --> B[入口]',
+    contextFiles: contextPack ? summarizeContextPack(contextPack).files : []
+  };
+}
+
+function summarizeContextPack(contextPack) {
+  return {
+    generatedAt: contextPack.generatedAt,
+    budget: contextPack.budget,
+    files: contextPack.files.map((file) => ({
+      path: file.path,
+      role: file.role,
+      priority: file.priority,
+      language: file.language,
+      score: file.score,
+      charCount: file.charCount,
+      truncated: file.truncated
+    }))
   };
 }
 
