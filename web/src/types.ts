@@ -45,6 +45,13 @@ export interface ContextFile {
   truncated?: boolean;
 }
 
+export interface AiConfig {
+  provider: string;
+  baseURL: string;
+  model: string;
+  apiKey: string;
+}
+
 export interface RepoMap {
   generatedAt: string;
   totals: { files: number; textFiles: number; symbols: number };

@@ -5,11 +5,12 @@ import { createServer as createViteServer } from 'vite';
 import { fileURLToPath } from 'node:url';
 import { scanProject } from './scanner.js';
 import { buildHeuristicReport } from './heuristic.js';
-import { readTextFileSafe, ensureInside, isProbablyText, toPosix } from './fs-utils.js';
+import { readTextFileSafe } from './fs-utils.js';
 import { analyzeWithAI, askWithAI } from './ai.js';
 import { readConfig, writeConfig, redactConfig } from './config-store.js';
 import { buildContextPack } from './context-pack.js';
-import { buildFlowsMermaid } from './flow-analyzer.js';
+import { normalizeReport, summarizeContextPack } from './report-normalizer.js';
+import { enrichContext } from './context-enrichment.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, '..');
@@ -150,120 +151,4 @@ export async function startServer({ projectDir, port, host }) {
       resolve({ app, listener, port: listener.address().port });
     });
   });
-}
-
-function normalizeReport(report, contextPack = null) {
-  const flows = Array.isArray(report.flows) ? report.flows.map(normalizeFlow) : [];
-  return {
-    generatedBy: report.generatedBy || 'ai',
-    projectOverview: report.projectOverview || {},
-    entrypoints: Array.isArray(report.entrypoints) ? report.entrypoints : [],
-    modules: Array.isArray(report.modules) ? report.modules : [],
-    flows,
-    risks: Array.isArray(report.risks) ? report.risks : [],
-    readingPlan: Array.isArray(report.readingPlan) ? report.readingPlan : [],
-    unknowns: Array.isArray(report.unknowns) ? report.unknowns : [],
-    mermaid: typeof report.mermaid === 'string' && report.mermaid.trim() ? report.mermaid : buildFlowsMermaid(flows),
-    contextFiles: contextPack ? summarizeContextPack(contextPack).files : []
-  };
-}
-
-function normalizeFlow(flow) {
-  const steps = Array.isArray(flow.steps)
-    ? flow.steps.map((step, index) => ({
-        order: Number(step.order) || index + 1,
-        path: step.path || '',
-        symbol: step.symbol || '',
-        startLine: step.startLine,
-        endLine: step.endLine,
-        description: step.description || '',
-        confidence: step.confidence || flow.confidence || 'guess'
-      }))
-    : [];
-  return {
-    ...flow,
-    kind: flow.kind || 'unknown',
-    priority: flow.priority || 'P1',
-    confidence: flow.confidence || 'guess',
-    steps,
-    dataReads: Array.isArray(flow.dataReads) ? flow.dataReads : [],
-    dataWrites: Array.isArray(flow.dataWrites) ? flow.dataWrites : [],
-    externalCalls: Array.isArray(flow.externalCalls) ? flow.externalCalls : [],
-    breakpoints: Array.isArray(flow.breakpoints) ? flow.breakpoints : [],
-    notes: Array.isArray(flow.notes) ? flow.notes : [],
-    unknowns: Array.isArray(flow.unknowns) ? flow.unknowns : []
-  };
-}
-
-function summarizeContextPack(contextPack) {
-  return {
-    generatedAt: contextPack.generatedAt,
-    budget: contextPack.budget,
-    files: contextPack.files.map((file) => ({
-      path: file.path,
-      role: file.role,
-      priority: file.priority,
-      language: file.language,
-      score: file.score,
-      charCount: file.charCount,
-      truncated: file.truncated
-    }))
-  };
-}
-
-async function enrichContext(root, context) {
-  const next = { ...context };
-  const pathCandidates = [context.currentFile?.path, context.filePath, context.path].filter(Boolean);
-  if (pathCandidates.length) {
-    const rel = pathCandidates[0];
-    try {
-      const file = await readTextFileSafe(root, rel, 80_000);
-      next.currentFile = { ...(context.currentFile || {}), path: rel, content: file.content, truncated: file.truncated };
-      const lines = file.content.split(/\r?\n/);
-      if (context.selection?.startLine && context.selection?.endLine) {
-        const start = Math.max(1, Number(context.selection.startLine));
-        const end = Math.max(start, Number(context.selection.endLine));
-        next.selectedCode = lines.slice(start - 1, end).join('\n');
-      }
-      if (context.currentSymbol?.startLine && context.currentSymbol?.endLine) {
-        const start = Math.max(1, Number(context.currentSymbol.startLine));
-        const end = Math.max(start, Number(context.currentSymbol.endLine));
-        next.currentSymbol = context.currentSymbol;
-        next.symbolCode = lines.slice(start - 1, end).join('\n');
-      }
-    } catch {
-      // skip
-    }
-  }
-
-  if (Array.isArray(context.activeFlow?.steps)) {
-    next.flowStepSnippets = await readFlowStepSnippets(root, context.activeFlow.steps);
-  }
-  return next;
-}
-
-async function readFlowStepSnippets(root, steps) {
-  const snippets = [];
-  for (const step of steps.slice(0, 8)) {
-    if (!step.path) continue;
-    try {
-      const file = await readTextFileSafe(root, step.path, 80_000);
-      const lines = file.content.split(/\r?\n/);
-      const start = Math.max(1, Number(step.startLine) || 1);
-      const end = Math.max(start, Number(step.endLine) || start);
-      const paddedStart = Math.max(1, start - 4);
-      const paddedEnd = Math.min(lines.length, end + 6);
-      snippets.push({
-        order: step.order,
-        path: step.path,
-        symbol: step.symbol || '',
-        startLine: paddedStart,
-        endLine: paddedEnd,
-        code: lines.slice(paddedStart - 1, paddedEnd).join('\n')
-      });
-    } catch {
-      snippets.push({ order: step.order, path: step.path, error: '无法读取链路步骤文件' });
-    }
-  }
-  return snippets;
 }

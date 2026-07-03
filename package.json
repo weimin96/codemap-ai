@@ -1,6 +1,6 @@
 {
   "name": "project-fast-onboarding",
-  "version": "0.2.0",
+  "version": "0.5.1",
   "description": "Local AI project onboarding workbench with code preview, flow maps, risk radar, and context-bound Q&A.",
   "type": "module",
   "bin": {

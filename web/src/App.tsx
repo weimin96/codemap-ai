@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Editor, { OnMount } from '@monaco-editor/react';
-import { Bot, BrainCircuit, CircleAlert, FileCode2, GitBranch, KeyRound, Loader2, Map, Play, RefreshCw, Route, Search, ShieldAlert, Sparkles } from 'lucide-react';
+import { Bot, CircleAlert, FileCode2, GitBranch, Loader2, Map, Play, Route, Search, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select } from '@/components/ui/select';
 import { MermaidPanel } from '@/components/MermaidPanel';
-import type { CoreFlow, FlowStep, Report, RepoMap, ScanFile, SymbolInfo } from '@/types';
+import { AiConfigCard } from '@/components/AiConfigCard';
+import { WorkbenchHeader } from '@/components/WorkbenchHeader';
+import { ContextSummary, FlowDetail, Overview } from '@/components/WorkbenchPanels';
+import { languageForMonaco } from '@/lib/language';
+import type { AiConfig, CoreFlow, FlowStep, Report, RepoMap, ScanFile, SymbolInfo } from '@/types';
 
 interface ProjectPayload {
   projectDir: string;
@@ -23,7 +26,7 @@ interface FilePayload {
   size: number;
 }
 
-const defaultConfig = {
+const defaultConfig: AiConfig = {
   provider: 'openai-compatible',
   baseURL: 'https://api.openai.com/v1',
   model: 'gpt-4.1-mini',
@@ -189,45 +192,22 @@ export default function App() {
 
   return (
     <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
-      <header className="flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-primary text-primary-foreground p-2"><BrainCircuit size={18} /></div>
-          <div>
-            <div className="font-semibold">Project Fast Onboarding</div>
-            <div className="text-xs text-muted-foreground truncate max-w-[720px]">{payload?.projectDir || 'Loading project...'}</div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline">{payload?.scan?.totalFiles || 0} files</Badge>
-          <Badge variant="outline">{payload?.scan?.totalSymbols || 0} symbols</Badge>
-          <Badge variant="outline">{payload?.scan?.repoMap?.importantFiles?.length || 0} map</Badge>
-          <Button size="sm" variant="outline" onClick={exportRepoMap}>导出 Repo Map</Button>
-          <Button size="sm" variant="outline" onClick={rescan} disabled={!!loading}><RefreshCw size={14} />重新扫描</Button>
-          <Button size="sm" onClick={analyze} disabled={!!loading}><Sparkles size={14} />开始 AI 分析</Button>
-        </div>
-      </header>
+      <WorkbenchHeader
+        projectDir={payload?.projectDir}
+        totalFiles={payload?.scan?.totalFiles || 0}
+        totalSymbols={payload?.scan?.totalSymbols || 0}
+        mappedFiles={payload?.scan?.repoMap?.importantFiles?.length || 0}
+        loading={loading}
+        onExportRepoMap={exportRepoMap}
+        onRescan={rescan}
+        onAnalyze={analyze}
+      />
 
       <div className="grid flex-1 min-h-0 grid-cols-[360px_minmax(520px,1fr)_420px] gap-0">
         <aside className="border-r overflow-y-auto p-3 space-y-3">
           <Overview report={report} confidenceVariant={confidenceVariant} />
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-sm"><KeyRound size={16} />AI 配置</CardTitle>
-              <CardDescription>使用 AI SDK provider 调用模型。</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Select value={config.provider} onChange={(e) => setConfig({ ...config, provider: e.target.value })}>
-                <option value="openai-compatible">OpenAI Compatible</option>
-                <option value="openai">OpenAI</option>
-                <option value="ollama">Ollama</option>
-              </Select>
-              <Input value={config.baseURL} onChange={(e) => setConfig({ ...config, baseURL: e.target.value })} placeholder="Base URL" />
-              <Input value={config.model} onChange={(e) => setConfig({ ...config, model: e.target.value })} placeholder="Model" />
-              <Input value={config.apiKey} onChange={(e) => setConfig({ ...config, apiKey: e.target.value })} placeholder="API Key" type="password" />
-              <Button size="sm" variant="secondary" onClick={saveConfig} disabled={!!loading}>保存配置</Button>
-            </CardContent>
-          </Card>
+          <AiConfigCard config={config} loading={loading} onChange={setConfig} onSave={saveConfig} />
 
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Route size={16} />核心链路</CardTitle></CardHeader>
@@ -397,85 +377,4 @@ export default function App() {
       </div>
     </div>
   );
-}
-
-function Overview({ report, confidenceVariant }: { report: Report | null; confidenceVariant: (c?: string) => string }) {
-  return <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2 text-sm"><Sparkles size={16} />项目概览</CardTitle>
-      <CardDescription>{report?.generatedBy === 'ai' ? 'AI 分析结果' : '启发式预览，建议配置 AI 后分析'}</CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-3 text-sm">
-      <div className="flex items-center justify-between gap-2"><span>类型</span><Badge variant={confidenceVariant(report?.projectOverview?.confidence) as any}>{report?.projectOverview?.confidence || 'unknown'}</Badge></div>
-      <div className="font-medium">{report?.projectOverview?.type || '未知'}</div>
-      <div className="text-xs text-muted-foreground">{report?.projectOverview?.summary}</div>
-      <div className="flex flex-wrap gap-1">{report?.projectOverview?.techStack?.map((s) => <Badge key={s} variant="secondary">{s}</Badge>)}</div>
-    </CardContent>
-  </Card>;
-}
-
-function FlowDetail({ flow, onOpenStep }: { flow: CoreFlow; onOpenStep: (step: FlowStep) => void }) {
-  return <div className="space-y-3">
-    <div className="rounded-md border p-2">
-      <div className="flex items-center justify-between gap-2">
-        <div className="font-medium">{flow.name}</div>
-        <Badge variant="outline">{flow.kind || 'unknown'}</Badge>
-      </div>
-      <div className="mt-1 text-xs text-muted-foreground">{flow.trigger}</div>
-    </div>
-    <div className="space-y-1">
-      {flow.steps?.map((step) => (
-        <button key={`${step.order}-${step.path}-${step.symbol || ''}`} onClick={() => onOpenStep(step)} className="w-full rounded-md border p-2 text-left hover:bg-accent">
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-medium">{step.order}. {step.description}</span>
-            <Badge variant="secondary">{step.confidence || flow.confidence}</Badge>
-          </div>
-          <div className="mt-1 truncate font-mono text-xs text-muted-foreground">{step.path}{step.symbol ? ` · ${step.symbol}` : ''}</div>
-          {step.startLine && <div className="text-[10px] text-muted-foreground">L{step.startLine}{step.endLine ? `-L${step.endLine}` : ''}</div>}
-        </button>
-      ))}
-    </div>
-    <FlowFacts title="数据读取" items={flow.dataReads} />
-    <FlowFacts title="数据写入" items={flow.dataWrites} />
-    <FlowFacts title="外部调用" items={flow.externalCalls} />
-    <FlowFacts title="推荐断点" items={flow.breakpoints} />
-    <FlowFacts title="不确定点" items={flow.unknowns?.length ? flow.unknowns : flow.notes} />
-  </div>;
-}
-
-function FlowFacts({ title, items }: { title: string; items?: string[] }) {
-  if (!items?.length) return null;
-  return <div className="rounded-md border p-2">
-    <div className="mb-1 text-xs font-medium">{title}</div>
-    <div className="space-y-1">
-      {items.slice(0, 6).map((item) => <div key={item} className="font-mono text-[10px] text-muted-foreground break-all">{item}</div>)}
-    </div>
-  </div>;
-}
-
-function ContextSummary({ currentFile, currentSymbol, activeFlow, activeRisk, selection }: any) {
-  return <div className="rounded-lg border bg-slate-950 p-3 text-xs text-muted-foreground space-y-1">
-    <div>文件：<span className="font-mono text-foreground">{currentFile?.path || '-'}</span></div>
-    <div>符号：<span className="text-foreground">{currentSymbol ? `${currentSymbol.kind} ${currentSymbol.name}` : '-'}</span></div>
-    <div>选区：<span className="text-foreground">{selection ? `L${selection.startLine}-L${selection.endLine}` : '-'}</span></div>
-    <div>链路：<span className="text-foreground">{activeFlow?.name || '-'}</span></div>
-    <div>风险：<span className="text-foreground">{activeRisk?.title || '-'}</span></div>
-  </div>;
-}
-
-function languageForMonaco(file?: string) {
-  if (!file) return 'plaintext';
-  if (/\.tsx?$/.test(file)) return 'typescript';
-  if (/\.jsx?$/.test(file)) return 'javascript';
-  if (/\.json$/.test(file)) return 'json';
-  if (/\.mdx?$/.test(file)) return 'markdown';
-  if (/\.ya?ml$/.test(file)) return 'yaml';
-  if (/\.css$/.test(file)) return 'css';
-  if (/\.html$/.test(file)) return 'html';
-  if (/\.py$/.test(file)) return 'python';
-  if (/\.go$/.test(file)) return 'go';
-  if (/\.rs$/.test(file)) return 'rust';
-  if (/\.java$/.test(file)) return 'java';
-  if (/\.sql$/.test(file)) return 'sql';
-  return 'plaintext';
 }

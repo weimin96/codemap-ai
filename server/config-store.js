@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { exists } from './fs-utils.js';
+import { decryptSecret, encryptSecret } from './config-crypto.js';
 
 const CONFIG_DIR = path.join(os.homedir(), '.project-fast-onboarding');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
@@ -12,7 +13,9 @@ export async function readConfig() {
   }
   try {
     const parsed = JSON.parse(await fs.readFile(CONFIG_FILE, 'utf8'));
-    return { ...envConfig(), ...parsed };
+    const stored = await decodeStoredConfig(parsed);
+    if (parsed.apiKey && !parsed.apiKeyEncrypted) await writeConfig(stored);
+    return { ...envConfig(), ...stored };
   } catch {
     return envConfig();
   }
@@ -20,9 +23,10 @@ export async function readConfig() {
 
 export async function writeConfig(config) {
   await fs.mkdir(CONFIG_DIR, { recursive: true });
-  const current = await readConfig();
+  const current = await readConfigWithoutMigration();
   const next = { ...current, ...config };
-  await fs.writeFile(CONFIG_FILE, JSON.stringify(next, null, 2));
+  const stored = await encodeStoredConfig(next);
+  await fs.writeFile(CONFIG_FILE, JSON.stringify(stored, null, 2), { mode: 0o600 });
   return next;
 }
 
@@ -31,6 +35,30 @@ export function redactConfig(config) {
     ...config,
     apiKey: config.apiKey ? '********' : ''
   };
+}
+
+async function readConfigWithoutMigration() {
+  if (!(await exists(CONFIG_FILE))) return envConfig();
+  try {
+    const parsed = JSON.parse(await fs.readFile(CONFIG_FILE, 'utf8'));
+    return { ...envConfig(), ...(await decodeStoredConfig(parsed)) };
+  } catch {
+    return envConfig();
+  }
+}
+
+async function decodeStoredConfig(parsed) {
+  const { apiKeyEncrypted, ...rest } = parsed || {};
+  const apiKey = apiKeyEncrypted ? await decryptSecret(CONFIG_DIR, apiKeyEncrypted) : rest.apiKey || '';
+  delete rest.apiKey;
+  return { ...rest, apiKey };
+}
+
+async function encodeStoredConfig(config) {
+  const { apiKey, ...rest } = config || {};
+  const stored = { ...rest };
+  if (apiKey) stored.apiKeyEncrypted = await encryptSecret(CONFIG_DIR, apiKey);
+  return stored;
 }
 
 function envConfig() {
