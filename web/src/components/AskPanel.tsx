@@ -41,7 +41,7 @@ export function AskPanel({
   onExportContextPack: () => void;
   onOpenFile: (path: string) => void;
 }) {
-  return <aside className="overflow-y-auto p-3 space-y-3">
+  return <aside className="overflow-y-auto space-y-3">
     <QuestionCard
       currentFile={currentFile}
       currentSymbol={currentSymbol}
@@ -111,7 +111,7 @@ function AnswerCard({ answer, loading }: { answer: string; loading: string }) {
   return <Card>
     <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><CircleAlert size={16} />AI 回答</CardTitle></CardHeader>
     <CardContent>
-      <div className="whitespace-pre-wrap rounded-lg border bg-slate-950 p-3 text-sm leading-6 min-h-72">{loading && loading !== 'ask' ? `正在处理：${loading}` : answer || '暂无回答。先选择文件或链路，然后提问。'}</div>
+      <div className="min-h-72 whitespace-pre-wrap rounded-lg border bg-slate-50 p-3 text-sm leading-6 text-slate-700">{loading && loading !== 'ask' ? `正在处理：${loading}` : answer || '暂无回答。先选择文件或链路，然后提问。'}</div>
     </CardContent>
   </Card>;
 }
@@ -120,7 +120,7 @@ function ReadingPlanCard({ report, onOpenFile }: { report: Report | null; onOpen
   return <Card>
     <CardHeader><CardTitle className="text-sm">阅读路线</CardTitle></CardHeader>
     <CardContent className="space-y-2">
-      {report?.readingPlan?.map((plan, index) => <div key={index} className="rounded-md border p-2 text-sm"><div className="font-medium">{plan.timebox} · {plan.goal}</div><div className="text-xs text-muted-foreground mt-1">{plan.output}</div>{plan.files?.slice(0, 4).map((file) => <Button key={file} type="button" variant="ghost" size="sm" onClick={() => onOpenFile(file)} className="h-auto justify-start truncate px-0 py-0 text-xs text-sky-300 hover:bg-transparent hover:underline">{file}</Button>)}</div>)}
+      {report?.readingPlan?.map((plan, index) => <div key={index} className="rounded-md border p-2 text-sm"><div className="font-medium">{plan.timebox} · {plan.goal}</div><div className="text-xs text-muted-foreground mt-1">{plan.output}</div>{plan.files?.slice(0, 4).map((file) => <Button key={file} type="button" variant="ghost" size="sm" onClick={() => onOpenFile(file)} className="h-auto justify-start truncate px-0 py-0 text-xs text-blue-700 hover:bg-transparent hover:underline">{file}</Button>)}</div>)}
     </CardContent>
   </Card>;
 }

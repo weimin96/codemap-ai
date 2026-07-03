@@ -55,12 +55,12 @@ export function ContextSummary({ currentFile, currentSymbol, activeFlow, activeR
   activeRisk: { title?: string } | null;
   selection: { startLine: number; endLine: number } | null;
 }) {
-  return <div className="rounded-lg border bg-slate-950 p-3 text-xs text-muted-foreground space-y-1">
-    <div>文件：<span className="font-mono text-foreground">{currentFile?.path || '-'}</span></div>
-    <div>符号：<span className="text-foreground">{currentSymbol ? `${currentSymbol.kind} ${currentSymbol.name}` : '-'}</span></div>
-    <div>选区：<span className="text-foreground">{selection ? `L${selection.startLine}-L${selection.endLine}` : '-'}</span></div>
-    <div>链路：<span className="text-foreground">{activeFlow?.name || '-'}</span></div>
-    <div>风险：<span className="text-foreground">{activeRisk?.title || '-'}</span></div>
+  return <div className="rounded-lg border bg-slate-50 p-3 text-xs text-muted-foreground space-y-1">
+    <div>文件：<span className="font-mono text-slate-900">{currentFile?.path || '-'}</span></div>
+    <div>符号：<span className="text-slate-900">{currentSymbol ? `${currentSymbol.kind} ${currentSymbol.name}` : '-'}</span></div>
+    <div>选区：<span className="text-slate-900">{selection ? `L${selection.startLine}-L${selection.endLine}` : '-'}</span></div>
+    <div>链路：<span className="text-slate-900">{activeFlow?.name || '-'}</span></div>
+    <div>风险：<span className="text-slate-900">{activeRisk?.title || '-'}</span></div>
   </div>;
 }
 

@@ -1,13 +1,20 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { OnMount } from '@monaco-editor/react';
+import { AppShell, type PageId } from '@/components/AppShell';
 import { AskPanel } from '@/components/AskPanel';
 import { CodeWorkspace } from '@/components/CodeWorkspace';
-import { ProjectSidebar } from '@/components/ProjectSidebar';
-import { WorkbenchHeader } from '@/components/WorkbenchHeader';
+import { DataModelPage } from '@/pages/DataModelPage';
+import { FlowPage } from '@/pages/FlowPage';
+import { HistoryPage } from '@/pages/HistoryPage';
+import { ModuleMapPage } from '@/pages/ModuleMapPage';
+import { OverviewPage } from '@/pages/OverviewPage';
+import { RiskPage } from '@/pages/RiskPage';
+import { SettingsPage } from '@/pages/SettingsPage';
 import { useWorkbenchData } from '@/hooks/useWorkbenchData';
 import type { FlowStep, SymbolInfo } from '@/types';
 
 export default function App() {
+  const [activePage, setActivePage] = useState<PageId>('overview');
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const workbench = useWorkbenchData();
 
@@ -30,6 +37,7 @@ export default function App() {
 
   function openFlowStep(step: FlowStep) {
     if (!step.path) return;
+    setActivePage('code');
     void workbench.openFile(step.path, step.startLine);
   }
 
@@ -47,64 +55,53 @@ export default function App() {
     editorRef.current?.focus();
   }
 
-  return (
-    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
-      <WorkbenchHeader
-        projectDir={workbench.payload?.projectDir}
-        totalFiles={workbench.payload?.scan?.totalFiles || 0}
-        totalSymbols={workbench.payload?.scan?.totalSymbols || 0}
-        mappedFiles={workbench.payload?.scan?.repoMap?.importantFiles?.length || 0}
-        loading={workbench.loading}
-        onExportRepoMap={exportRepoMap}
-        onRescan={workbench.rescan}
-        onAnalyze={workbench.analyze}
+  return <AppShell
+    activePage={activePage}
+    payload={workbench.payload}
+    loading={workbench.loading}
+    onNavigate={setActivePage}
+    onAnalyze={workbench.analyze}
+    onExportReport={exportContextPack}
+  >
+    {activePage === 'overview' && <OverviewPage payload={workbench.payload} report={workbench.report} onNavigate={setActivePage} />}
+    {activePage === 'modules' && <ModuleMapPage payload={workbench.payload} report={workbench.report} onNavigate={setActivePage} />}
+    {activePage === 'flows' && <FlowPage report={workbench.report} activeFlow={workbench.activeFlow} onSelectFlow={workbench.setActiveFlow} onOpenStep={openFlowStep} onNavigate={setActivePage} />}
+    {activePage === 'data' && <DataModelPage payload={workbench.payload} report={workbench.report} />}
+    {activePage === 'risks' && <RiskPage report={workbench.report} onNavigate={setActivePage} />}
+    {activePage === 'history' && <HistoryPage report={workbench.report} />}
+    {activePage === 'settings' && <SettingsPage config={workbench.config} loading={workbench.loading} onConfigChange={workbench.setConfig} onSaveConfig={workbench.saveConfig} />}
+    {activePage === 'code' && <div className="grid h-[calc(100vh-104px)] grid-cols-[minmax(680px,1fr)_380px] gap-4">
+      <CodeWorkspace
+        report={workbench.report}
+        activeFlow={workbench.activeFlow}
+        currentFile={workbench.currentFile}
+        currentSymbol={workbench.currentSymbol}
+        selection={workbench.selection}
+        search={workbench.search}
+        results={workbench.results}
+        files={workbench.files}
+        currentFileSymbols={workbench.currentFileSymbols}
+        onSearch={workbench.runSearch}
+        onOpenFile={workbench.openFile}
+        onOpenStep={openFlowStep}
+        onOpenSymbol={openSymbol}
+        onEditorMount={editorMount}
       />
-
-      <div className="grid flex-1 min-h-0 grid-cols-[360px_minmax(520px,1fr)_420px] gap-0">
-        <ProjectSidebar
-          payload={workbench.payload}
-          report={workbench.report}
-          config={workbench.config}
-          loading={workbench.loading}
-          onConfigChange={workbench.setConfig}
-          onSaveConfig={workbench.saveConfig}
-          onSelectFlow={workbench.setActiveFlow}
-          onOpenFlowStep={openFlowStep}
-          onOpenFile={workbench.openFile}
-          onSelectRisk={workbench.setActiveRisk}
-        />
-        <CodeWorkspace
-          report={workbench.report}
-          activeFlow={workbench.activeFlow}
-          currentFile={workbench.currentFile}
-          currentSymbol={workbench.currentSymbol}
-          selection={workbench.selection}
-          search={workbench.search}
-          results={workbench.results}
-          files={workbench.files}
-          currentFileSymbols={workbench.currentFileSymbols}
-          onSearch={workbench.runSearch}
-          onOpenFile={workbench.openFile}
-          onOpenStep={openFlowStep}
-          onOpenSymbol={openSymbol}
-          onEditorMount={editorMount}
-        />
-        <AskPanel
-          report={workbench.report}
-          currentFile={workbench.currentFile}
-          currentSymbol={workbench.currentSymbol}
-          activeFlow={workbench.activeFlow}
-          activeRisk={workbench.activeRisk}
-          selection={workbench.selection}
-          question={workbench.question}
-          answer={workbench.answer}
-          loading={workbench.loading}
-          onQuestionChange={workbench.setQuestion}
-          onAsk={workbench.ask}
-          onExportContextPack={exportContextPack}
-          onOpenFile={workbench.openFile}
-        />
-      </div>
-    </div>
-  );
+      <AskPanel
+        report={workbench.report}
+        currentFile={workbench.currentFile}
+        currentSymbol={workbench.currentSymbol}
+        activeFlow={workbench.activeFlow}
+        activeRisk={workbench.activeRisk}
+        selection={workbench.selection}
+        question={workbench.question}
+        answer={workbench.answer}
+        loading={workbench.loading}
+        onQuestionChange={workbench.setQuestion}
+        onAsk={workbench.ask}
+        onExportContextPack={exportContextPack}
+        onOpenFile={workbench.openFile}
+      />
+    </div>}
+  </AppShell>;
 }

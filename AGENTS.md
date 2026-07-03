@@ -47,10 +47,6 @@ web/                → Vite + React + TypeScript SPA (Monaco, Mermaid, Tailwind
 - Config resolution order: CLI args > pfo.config.json > env vars > Web UI setting
 - The AI provider model is created on every call — no pooling or caching
 
-## Current version
-
-package.json says `0.2.0`, but v0.3 (symbol indexing) and v0.4 (repo map + context pack) are implemented per the development plan in `docs/开发计划.md`. Next milestone is v0.5 (core flow analysis + Mermaid visualization).
-
 ## 务必遵守的规范
 
 - 需要进行合理的组件拆分，避免单个文件过大；
