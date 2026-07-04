@@ -9,5 +9,10 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src')
     }
+  },
+  build: {
+    // The application shell is route-split. Remaining large chunks are lazy Mermaid
+    // renderer internals loaded only when a diagram is rendered.
+    chunkSizeWarningLimit: 700
   }
 });

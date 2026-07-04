@@ -1,20 +1,21 @@
-import { useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import type { OnMount } from '@monaco-editor/react';
 import { AppShell, type PageId } from '@/components/AppShell';
-import { AskPanel } from '@/components/AskPanel';
-import { CodeWorkspace } from '@/components/CodeWorkspace';
-import { CodeGraphPage } from '@/pages/CodeGraphPage';
-import { DataModelPage } from '@/pages/DataModelPage';
-import { FlowDetailPage } from '@/pages/FlowDetailPage';
-import { FlowPage } from '@/pages/FlowPage';
-import { HistoryPage } from '@/pages/HistoryPage';
-import { ModuleDetailPage } from '@/pages/ModuleDetailPage';
-import { ModuleMapPage } from '@/pages/ModuleMapPage';
-import { OverviewPage } from '@/pages/OverviewPage';
-import { RiskPage } from '@/pages/RiskPage';
-import { SettingsPage } from '@/pages/SettingsPage';
 import { useWorkbenchData } from '@/hooks/useWorkbenchData';
 import type { CodeReference, CoreFlow, FlowStep, ProjectModule, RiskItem, SymbolInfo } from '@/types';
+
+const AskPanel = lazy(() => import('@/components/AskPanel').then((module) => ({ default: module.AskPanel })));
+const CodeWorkspace = lazy(() => import('@/components/CodeWorkspace').then((module) => ({ default: module.CodeWorkspace })));
+const CodeGraphPage = lazy(() => import('@/pages/CodeGraphPage').then((module) => ({ default: module.CodeGraphPage })));
+const DataModelPage = lazy(() => import('@/pages/DataModelPage').then((module) => ({ default: module.DataModelPage })));
+const FlowDetailPage = lazy(() => import('@/pages/FlowDetailPage').then((module) => ({ default: module.FlowDetailPage })));
+const FlowPage = lazy(() => import('@/pages/FlowPage').then((module) => ({ default: module.FlowPage })));
+const HistoryPage = lazy(() => import('@/pages/HistoryPage').then((module) => ({ default: module.HistoryPage })));
+const ModuleDetailPage = lazy(() => import('@/pages/ModuleDetailPage').then((module) => ({ default: module.ModuleDetailPage })));
+const ModuleMapPage = lazy(() => import('@/pages/ModuleMapPage').then((module) => ({ default: module.ModuleMapPage })));
+const OverviewPage = lazy(() => import('@/pages/OverviewPage').then((module) => ({ default: module.OverviewPage })));
+const RiskPage = lazy(() => import('@/pages/RiskPage').then((module) => ({ default: module.RiskPage })));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((module) => ({ default: module.SettingsPage })));
 
 export default function App() {
   const [activePage, setActivePage] = useState<PageId>('overview');
@@ -34,10 +35,6 @@ export default function App() {
 
   function exportContextPack() {
     window.location.href = '/api/context-pack?format=markdown';
-  }
-
-  function exportRepoMap() {
-    window.location.href = '/api/repo-map?download=1';
   }
 
   function openFlowStep(step: FlowStep) {
@@ -100,48 +97,50 @@ export default function App() {
     onExportReport={exportContextPack}
     onOpenSettings={() => setSettingsOpen(true)}
   >
-    {activePage === 'overview' && <OverviewPage payload={workbench.payload} report={workbench.report} onNavigate={setActivePage} />}
-    {activePage === 'modules' && <ModuleMapPage payload={workbench.payload} report={workbench.report} onOpenModule={openModule} />}
-    {activePage === 'module-detail' && <ModuleDetailPage report={workbench.report} activeModuleId={activeModuleId} onBack={() => setActivePage('modules')} onOpenFile={openCodeReference} />}
-    {activePage === 'flows' && <FlowPage report={workbench.report} activeFlow={workbench.activeFlow} onSelectFlow={workbench.setActiveFlow} onOpenStep={openFlowStep} onOpenFlowDetail={openFlowDetail} onNavigate={setActivePage} />}
-    {activePage === 'flow-detail' && <FlowDetailPage report={workbench.report} activeFlow={workbench.activeFlow} onBack={() => setActivePage('flows')} onOpenStep={openFlowStep} />}
-    {activePage === 'data' && <DataModelPage payload={workbench.payload} report={workbench.report} />}
-    {activePage === 'risks' && <RiskPage report={workbench.report} activeRisk={workbench.activeRisk} onSelectRisk={workbench.setActiveRisk} onOpenRiskCode={openRiskCode} />}
-    {activePage === 'graph' && <CodeGraphPage graph={workbench.codeGraph} loading={workbench.loading} onLoadGraph={workbench.loadCodeGraph} onOpenFile={openGraphFile} />}
-    {activePage === 'history' && <HistoryPage report={workbench.report} />}
-    {activePage === 'code' && <div className="grid h-[calc(100vh-104px)] grid-cols-[minmax(680px,1fr)_380px] gap-4">
-      <CodeWorkspace
-        report={workbench.report}
-        activeFlow={workbench.activeFlow}
-        currentFile={workbench.currentFile}
-        currentSymbol={workbench.currentSymbol}
-        selection={workbench.selection}
-        search={workbench.search}
-        results={workbench.results}
-        files={workbench.files}
-        currentFileSymbols={workbench.currentFileSymbols}
-        onSearch={workbench.runSearch}
-        onOpenFile={workbench.openFile}
-        onOpenStep={openFlowStep}
-        onOpenSymbol={openSymbol}
-        onEditorMount={editorMount}
-      />
-      <AskPanel
-        report={workbench.report}
-        currentFile={workbench.currentFile}
-        currentSymbol={workbench.currentSymbol}
-        activeFlow={workbench.activeFlow}
-        activeRisk={workbench.activeRisk}
-        selection={workbench.selection}
-        question={workbench.question}
-        answer={workbench.answer}
-        loading={workbench.loading}
-        onQuestionChange={workbench.setQuestion}
-        onAsk={workbench.ask}
-        onExportContextPack={exportContextPack}
-        onOpenFile={workbench.openFile}
-      />
-    </div>}
-    <SettingsPage open={settingsOpen} config={workbench.config} loading={workbench.loading} onOpenChange={setSettingsOpen} onConfigChange={workbench.setConfig} onSaveConfig={workbench.saveConfig} />
+    <Suspense fallback={<div className="rounded-lg border bg-white p-6 text-sm text-slate-500">页面加载中...</div>}>
+      {activePage === 'overview' && <OverviewPage payload={workbench.payload} report={workbench.report} onNavigate={setActivePage} />}
+      {activePage === 'modules' && <ModuleMapPage payload={workbench.payload} report={workbench.report} onOpenModule={openModule} />}
+      {activePage === 'module-detail' && <ModuleDetailPage report={workbench.report} activeModuleId={activeModuleId} onBack={() => setActivePage('modules')} onOpenFile={openCodeReference} />}
+      {activePage === 'flows' && <FlowPage report={workbench.report} activeFlow={workbench.activeFlow} onSelectFlow={workbench.setActiveFlow} onOpenStep={openFlowStep} onOpenFlowDetail={openFlowDetail} onNavigate={setActivePage} />}
+      {activePage === 'flow-detail' && <FlowDetailPage report={workbench.report} activeFlow={workbench.activeFlow} onBack={() => setActivePage('flows')} onOpenStep={openFlowStep} />}
+      {activePage === 'data' && <DataModelPage payload={workbench.payload} report={workbench.report} />}
+      {activePage === 'risks' && <RiskPage report={workbench.report} activeRisk={workbench.activeRisk} onSelectRisk={workbench.setActiveRisk} onOpenRiskCode={openRiskCode} />}
+      {activePage === 'graph' && <CodeGraphPage graph={workbench.codeGraph} loading={workbench.loading} onLoadGraph={workbench.loadCodeGraph} onOpenFile={openGraphFile} />}
+      {activePage === 'history' && <HistoryPage report={workbench.report} />}
+      {activePage === 'code' && <div className="grid h-[calc(100vh-104px)] grid-cols-[minmax(680px,1fr)_380px] gap-4">
+        <CodeWorkspace
+          report={workbench.report}
+          activeFlow={workbench.activeFlow}
+          currentFile={workbench.currentFile}
+          currentSymbol={workbench.currentSymbol}
+          selection={workbench.selection}
+          search={workbench.search}
+          results={workbench.results}
+          files={workbench.files}
+          currentFileSymbols={workbench.currentFileSymbols}
+          onSearch={workbench.runSearch}
+          onOpenFile={workbench.openFile}
+          onOpenStep={openFlowStep}
+          onOpenSymbol={openSymbol}
+          onEditorMount={editorMount}
+        />
+        <AskPanel
+          report={workbench.report}
+          currentFile={workbench.currentFile}
+          currentSymbol={workbench.currentSymbol}
+          activeFlow={workbench.activeFlow}
+          activeRisk={workbench.activeRisk}
+          selection={workbench.selection}
+          question={workbench.question}
+          answer={workbench.answer}
+          loading={workbench.loading}
+          onQuestionChange={workbench.setQuestion}
+          onAsk={workbench.ask}
+          onExportContextPack={exportContextPack}
+          onOpenFile={workbench.openFile}
+        />
+      </div>}
+      {settingsOpen && <SettingsPage open={settingsOpen} config={workbench.config} loading={workbench.loading} onOpenChange={setSettingsOpen} onConfigChange={workbench.setConfig} onSaveConfig={workbench.saveConfig} />}
+    </Suspense>
   </AppShell>;
 }
