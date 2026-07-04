@@ -11,14 +11,10 @@ export async function readConfig() {
   if (!(await exists(CONFIG_FILE))) {
     return envConfig();
   }
-  try {
-    const parsed = JSON.parse(await fs.readFile(CONFIG_FILE, 'utf8'));
-    const stored = await decodeStoredConfig(parsed);
-    if (parsed.apiKey && !parsed.apiKeyEncrypted) await writeConfig(stored);
-    return { ...envConfig(), ...stored };
-  } catch {
-    return envConfig();
-  }
+  const parsed = await readStoredConfigFile();
+  const stored = await decodeStoredConfig(parsed);
+  if (parsed.apiKey && !parsed.apiKeyEncrypted) await writeConfig(stored);
+  return { ...envConfig(), ...stored };
 }
 
 export async function writeConfig(config) {
@@ -39,11 +35,15 @@ export function redactConfig(config) {
 
 async function readConfigWithoutMigration() {
   if (!(await exists(CONFIG_FILE))) return envConfig();
+  const parsed = await readStoredConfigFile();
+  return { ...envConfig(), ...(await decodeStoredConfig(parsed)) };
+}
+
+async function readStoredConfigFile() {
   try {
-    const parsed = JSON.parse(await fs.readFile(CONFIG_FILE, 'utf8'));
-    return { ...envConfig(), ...(await decodeStoredConfig(parsed)) };
-  } catch {
-    return envConfig();
+    return JSON.parse(await fs.readFile(CONFIG_FILE, 'utf8'));
+  } catch (error) {
+    throw new Error(`Failed to read config file ${CONFIG_FILE}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

@@ -29,3 +29,5 @@
 - 阶段 10 验证通过：node --check server/context-enrichment.js server/server.js；npm run typecheck。
 - 阶段 11 完成：移除 scanner 中目录读取、符号输入读取、context bundle 读取的静默跳过路径，改为明确错误。
 - 阶段 11 验证通过：node --check server/scanner.js；npm run typecheck。
+- 阶段 12 完成：配置文件不存在时仍使用环境变量；配置文件存在但无法读取、JSON 不合法或解密失败时明确报错。
+- 阶段 12 验证通过：node --check server/config-store.js server/server.js；npm run typecheck。

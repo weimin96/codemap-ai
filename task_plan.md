@@ -29,6 +29,7 @@
 | 9 | complete | 移除 AI 解析与 Context Pack 读取兜底路径，改为明确失败 | node --check server/ai.js server/context-pack.js；npm run typecheck |
 | 10 | complete | 移除追问上下文增强中的静默读取失败 | node --check server/context-enrichment.js；npm run typecheck |
 | 11 | complete | 移除扫描器中的静默跳过路径 | node --check server/scanner.js；npm run typecheck |
+| 12 | complete | config read errors fail fast | node --check server/config-store.js；npm run typecheck |
 
 ## 风险点
 - 历史报告可能缺少新增字段，normalizer 必须补齐默认结构。
