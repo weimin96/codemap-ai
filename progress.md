@@ -19,3 +19,5 @@
 - 阶段 19 验证通过：node --check server/ai.js，npm run test，当前 8 个测试通过。
 - 阶段 20 完成：ProjectModule、CoreFlow、RiskItem、DataEntity 增加 verificationStatus、verifiedBy、verifiedAt、verificationNote；normalizer 默认 ai_guess 并保留显式状态。
 - 阶段 20 验证通过：npm run typecheck，npm run test，当前 9 个测试通过。
+- 阶段 21 完成：新增 document-exporter，生成 PROJECT_MAP、MODULES、CORE_FLOWS、DATA_MODEL、RISK_REGISTER、READING_PLAN、QUESTIONS 文档集，并接入 /api/onboarding-docs。
+- 阶段 21 验证通过：node --check server/document-exporter.js，node --check server/server.js，npm run test，当前 11 个测试通过。

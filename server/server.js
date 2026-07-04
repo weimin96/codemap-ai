@@ -12,6 +12,7 @@ import { normalizeReport, summarizeContextPack } from './report-normalizer.js';
 import { enrichContext } from './context-enrichment.js';
 import { deleteProjectReport, readProjectReport, writeProjectReport } from './report-store.js';
 import { buildCodeGraph, findShortestPath } from './code-graph.js';
+import { buildDocumentSet } from './document-exporter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, '..');
@@ -122,6 +123,17 @@ export async function startServer({ projectDir, port, host }) {
       const targetId = typeof req.query.targetId === 'string' ? req.query.targetId : '';
       const connection = sourceId && targetId ? findShortestPath(cache.codeGraph, sourceId, targetId) : [];
       res.json({ graph: cache.codeGraph, connection });
+    } catch (error) { next(error); }
+  });
+
+  app.get('/api/onboarding-docs', async (_req, res, next) => {
+    try {
+      if (!cache.scan) cache.scan = await scanProject(projectDir);
+      if (!cache.report) {
+        const storedReport = await readProjectReport(projectDir);
+        cache.report = storedReport ? normalizeReport(storedReport, null, cache.scan) : null;
+      }
+      res.json(buildDocumentSet({ report: cache.report, scan: cache.scan }));
     } catch (error) { next(error); }
   });
 
