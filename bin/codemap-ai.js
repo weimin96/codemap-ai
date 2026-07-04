@@ -4,6 +4,7 @@ import process from 'node:process';
 import { Command } from 'commander';
 import open from 'open';
 import { startServer } from '../server/server.js';
+import { parsePort } from './cli-options.js';
 
 const program = new Command();
 
@@ -18,10 +19,11 @@ program
 
 const opts = program.opts();
 const projectDir = path.resolve(program.args[0] || '.');
-const port = Number.parseInt(opts.port, 10);
-
-if (!Number.isFinite(port) || port <= 0) {
-  console.error('Invalid --port value.');
+let port;
+try {
+  port = parsePort(opts.port);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
 
