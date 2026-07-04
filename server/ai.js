@@ -59,7 +59,7 @@ export async function analyzeWithAI({ scan, chunks, contextPack, config }) {
     prompt,
     temperature: 0.15
   });
-  return parseJsonResult(result.text);
+  return await parseJsonResultWithRepair({ text: result.text, model, expectedSchema: 'project analysis report JSON' });
 }
 
 export async function askWithAI({ question, context, config }) {
@@ -71,7 +71,8 @@ export async function askWithAI({ question, context, config }) {
     prompt,
     temperature: 0.2
   });
-  return parseAskAnswer(result.text);
+  const parsed = await parseJsonResultWithRepair({ text: result.text, model, expectedSchema: 'ask answer JSON' });
+  return validateAskAnswer(parsed);
 }
 
 const SYSTEM_PROMPT = `你是“项目快速接管工作台”的代码理解引擎。用户刚接手陌生项目，需要先通过你建立第一版项目地图，然后本人快速验证。
@@ -108,6 +109,8 @@ JSON 结构：
   "evidenceIndex": {"files":[{"path":"", "symbol":"", "startLine":1, "endLine":1, "reason":"", "confidence":"fact|guess|unknown"}]},
   "mermaid": "flowchart TD\n  A[触发] --> B[入口]"
 }`;
+
+const JSON_REPAIR_SYSTEM_PROMPT = `你只修复 JSON 格式。必须输出严格 JSON，不要解释，不要 Markdown，不要代码围栏。不要新增原文没有的信息。`;
 
 const ASK_SYSTEM_PROMPT = `你是项目快速接管助手。回答必须围绕当前文件、选中代码、当前链路或风险点。不要泛泛解释。
 
@@ -213,12 +216,38 @@ const AskAnswerSchema = z.object({
 });
 
 export function parseAskAnswer(text) {
-  const parsed = parseJsonResult(text);
-  const checked = AskAnswerSchema.safeParse(parsed);
+  return validateAskAnswer(parseJsonResult(text));
+}
+
+export function validateAskAnswer(value) {
+  const checked = AskAnswerSchema.safeParse(value);
   if (!checked.success) {
     throw new Error(`AI ask response schema invalid: ${checked.error.message}`);
   }
   return checked.data;
+}
+
+async function parseJsonResultWithRepair({ text, model, expectedSchema }) {
+  try {
+    return parseJsonResult(text);
+  } catch (firstError) {
+    const repair = await generateText({
+      model,
+      system: JSON_REPAIR_SYSTEM_PROMPT,
+      prompt: buildJsonRepairPrompt({ text, expectedSchema, error: firstError }),
+      temperature: 0
+    });
+    try {
+      return parseJsonResult(repair.text);
+    } catch (repairError) {
+      throw new Error(`AI response is not valid JSON after repair: ${repairError instanceof Error ? repairError.message : String(repairError)}`);
+    }
+  }
+}
+
+export function buildJsonRepairPrompt({ text, expectedSchema, error }) {
+  const message = error instanceof Error ? error.message : String(error);
+  return `目标结构：${expectedSchema}\n解析错误：${message}\n\n请把下面内容修复为严格 JSON。不要补充事实，不要输出 JSON 以外的文字。\n\n${text}`;
 }
 
 export function parseJsonResult(text) {

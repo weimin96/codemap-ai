@@ -15,3 +15,5 @@
 - 阶段 17 验证通过：node --check server/server.js，npm run typecheck。
 - 阶段 18 完成：代码图谱页右侧升级为 Inspector，增加概览、为什么有关、告警、代码四个视图，并用最短路径解释节点关系。
 - 阶段 18 验证通过：npm run typecheck。
+- 阶段 19 完成：AI 分析和追问在 JSON 解析失败时使用 repair prompt 重试一次，仍失败才返回明确错误。
+- 阶段 19 验证通过：node --check server/ai.js，npm run test，当前 8 个测试通过。
