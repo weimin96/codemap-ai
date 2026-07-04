@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AiConfig, AskAnswer, CodeGraph, CoreFlow, FilePayload, ProjectPayload, Report, ScanFile, SymbolInfo } from '@/types';
+import type { AiConfig, AskAnswer, AskThreadEntry, CodeGraph, CoreFlow, FilePayload, ProjectPayload, Report, ScanFile, SymbolInfo } from '@/types';
+
+const ASK_THREADS_STORAGE_KEY = 'codeatlas.askThreads.v1';
 
 const defaultConfig: AiConfig = {
   provider: 'openai-compatible',
@@ -23,6 +25,7 @@ export function useWorkbenchData() {
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<ScanFile[]>([]);
   const [codeGraph, setCodeGraph] = useState<CodeGraph | null>(null);
+  const [askThreads, setAskThreads] = useState<AskThreadEntry[]>(() => readAskThreads());
 
   useEffect(() => {
     void initialize();
@@ -161,6 +164,17 @@ export function useWorkbenchData() {
         body: JSON.stringify({ question: finalQuestion, context, config })
       });
       setAnswer(data.answer);
+      const entry = buildAskThreadEntry({
+        question: finalQuestion,
+        answer: data.answer,
+        projectId: payload?.projectDir || report?.projectOverview?.name || 'unknown-project',
+        currentFile,
+        selection,
+        currentSymbol,
+        activeFlow,
+        activeRisk
+      });
+      setAskThreads((current) => persistAskThreads([entry, ...current].slice(0, 200)));
     } catch (error) {
       setAnswer(`追问失败：${formatError(error)}`);
     } finally {
@@ -196,6 +210,7 @@ export function useWorkbenchData() {
     search,
     results,
     codeGraph,
+    askThreads,
     files,
     currentFileSymbols,
     openFile,
@@ -219,4 +234,76 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 function formatError(error: unknown) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function buildAskThreadEntry({
+  question,
+  answer,
+  projectId,
+  currentFile,
+  selection,
+  currentSymbol,
+  activeFlow,
+  activeRisk
+}: {
+  question: string;
+  answer: AskAnswer;
+  projectId: string;
+  currentFile: FilePayload | null;
+  selection: { startLine: number; endLine: number } | null;
+  currentSymbol: SymbolInfo | null;
+  activeFlow: CoreFlow | null;
+  activeRisk: Report['risks'][number] | null;
+}): AskThreadEntry {
+  const scope = askScope({ currentFile, selection, currentSymbol, activeFlow, activeRisk });
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    projectId,
+    scopeKey: `${projectId}:${scope.type}:${scope.key}`,
+    scopeType: scope.type,
+    scopeLabel: scope.label,
+    question,
+    answer,
+    createdAt: new Date().toISOString()
+  };
+}
+
+function askScope({
+  currentFile,
+  selection,
+  currentSymbol,
+  activeFlow,
+  activeRisk
+}: {
+  currentFile: FilePayload | null;
+  selection: { startLine: number; endLine: number } | null;
+  currentSymbol: SymbolInfo | null;
+  activeFlow: CoreFlow | null;
+  activeRisk: Report['risks'][number] | null;
+}): { type: AskThreadEntry['scopeType']; key: string; label: string } {
+  if (activeRisk) return { type: 'risk', key: activeRisk.id || activeRisk.title, label: `风险：${activeRisk.title}` };
+  if (activeFlow) return { type: 'flow', key: activeFlow.id || activeFlow.name, label: `链路：${activeFlow.name}` };
+  if (currentSymbol) return { type: 'symbol', key: currentSymbol.id, label: `符号：${currentSymbol.name}` };
+  if (currentFile && selection) return { type: 'selection', key: `${currentFile.path}:${selection.startLine}-${selection.endLine}`, label: `选区：${currentFile.path}:${selection.startLine}-${selection.endLine}` };
+  if (currentFile) return { type: 'file', key: currentFile.path, label: `文件：${currentFile.path}` };
+  return { type: 'project', key: 'project', label: '项目全局' };
+}
+
+function readAskThreads(): AskThreadEntry[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(ASK_THREADS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistAskThreads(entries: AskThreadEntry[]) {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(ASK_THREADS_STORAGE_KEY, JSON.stringify(entries));
+  }
+  return entries;
 }

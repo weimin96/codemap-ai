@@ -1,10 +1,12 @@
 import { SectionTitle } from '@/components/PageBlocks';
 import { Card, CardContent } from '@/components/ui/card';
-import type { Report } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import type { AskThreadEntry, Report } from '@/types';
 
-export function HistoryPage({ report }: { report: Report | null }) {
+export function HistoryPage({ report, askThreads }: { report: Report | null; askThreads: AskThreadEntry[] }) {
+  const groupedThreads = groupByScope(askThreads);
   return <div className="space-y-4">
-    <div className="grid grid-cols-[1fr_380px] gap-4">
+    <div className="grid grid-cols-[1fr_420px] gap-4">
       <Card>
         <CardContent className="p-5">
           <SectionTitle title="阅读路线" description="按照 30 / 60 / 120 分钟路径接管项目。" />
@@ -26,5 +28,51 @@ export function HistoryPage({ report }: { report: Report | null }) {
         </CardContent>
       </Card>
     </div>
+
+    <Card>
+      <CardContent className="p-5">
+        <SectionTitle title="追问历史" description="按项目、链路、风险、文件、符号或选区自动归档。当前版本保存在浏览器 localStorage。" />
+        <div className="space-y-4">
+          {!groupedThreads.length && <div className="rounded-xl border bg-slate-50 p-4 text-sm text-slate-500">暂无追问历史。完成一次追问后会按上下文范围归档。</div>}
+          {groupedThreads.map((group) => <div key={group.scopeKey} className="rounded-xl border bg-white p-4">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-slate-950">{group.scopeLabel}</div>
+                <div className="mt-1 font-mono text-xs text-slate-500">{group.scopeKey}</div>
+              </div>
+              <Badge variant="outline">{scopeTypeLabel(group.scopeType)} · {group.items.length}</Badge>
+            </div>
+            <div className="space-y-2">
+              {group.items.slice(0, 5).map((entry) => <div key={entry.id} className="rounded-lg border bg-slate-50 p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="font-medium text-slate-950">{entry.question}</div>
+                  <div className="shrink-0 text-xs text-slate-400">{formatDate(entry.createdAt)}</div>
+                </div>
+                <div className="mt-2 line-clamp-2 text-slate-600">{entry.answer.conclusion || entry.answer.markdown}</div>
+              </div>)}
+            </div>
+          </div>)}
+        </div>
+      </CardContent>
+    </Card>
   </div>;
+}
+
+function groupByScope(entries: AskThreadEntry[]) {
+  const map = new Map<string, { scopeKey: string; scopeType: AskThreadEntry['scopeType']; scopeLabel: string; items: AskThreadEntry[] }>();
+  for (const entry of entries) {
+    const group = map.get(entry.scopeKey) || { scopeKey: entry.scopeKey, scopeType: entry.scopeType, scopeLabel: entry.scopeLabel, items: [] };
+    group.items.push(entry);
+    map.set(entry.scopeKey, group);
+  }
+  return Array.from(map.values()).sort((a, b) => b.items.length - a.items.length);
+}
+
+function scopeTypeLabel(type: AskThreadEntry['scopeType']) {
+  return ({ project: '项目', module: '模块', flow: '链路', risk: '风险', file: '文件', symbol: '符号', selection: '选区' })[type];
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }

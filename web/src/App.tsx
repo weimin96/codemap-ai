@@ -118,7 +118,7 @@ export default function App() {
       {activePage === 'data' && <DataModelPage payload={workbench.payload} report={workbench.report} />}
       {activePage === 'risks' && <RiskPage report={workbench.report} activeRisk={workbench.activeRisk} onSelectRisk={workbench.setActiveRisk} onOpenRiskCode={openRiskCode} />}
       {activePage === 'graph' && <CodeGraphPage graph={workbench.codeGraph} loading={workbench.loading} onLoadGraph={workbench.loadCodeGraph} onOpenFile={openGraphFile} />}
-      {activePage === 'history' && <HistoryPage report={workbench.report} />}
+      {activePage === 'history' && <HistoryPage report={workbench.report} askThreads={workbench.askThreads} />}
       {activePage === 'code' && <div className="grid h-[calc(100vh-104px)] grid-cols-[minmax(680px,1fr)_380px] gap-4">
         <CodeWorkspace
           report={workbench.report}

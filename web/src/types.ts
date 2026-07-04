@@ -253,6 +253,17 @@ export interface EvidenceIndex {
   files: CodeReference[];
 }
 
+export interface AskThreadEntry {
+  id: string;
+  projectId: string;
+  scopeKey: string;
+  scopeType: 'project' | 'module' | 'flow' | 'risk' | 'file' | 'symbol' | 'selection';
+  scopeLabel: string;
+  question: string;
+  answer: AskAnswer;
+  createdAt: string;
+}
+
 export interface AskAnswer {
   conclusion: string;
   evidence: CodeReference[];
