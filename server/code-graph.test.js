@@ -138,6 +138,19 @@ test('buildCodeGraph resolves workspace package exports', async () => {
   assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes('packages/orders/src/api.ts') && edge.confidence === 'fact'));
 });
 
+test('buildCodeGraph uses TypeChecker for typed property calls', async () => {
+  const fixture = await createFixture({
+    'src/index.ts': "import { OrderService } from './service';\nexport function start() {\n  const service = new OrderService();\n  service.save();\n}\n",
+    'src/service.ts': "export class OrderService {\n  save() {\n    return true;\n  }\n}\n",
+    'src/other.ts': "export class OtherService {\n  save() {\n    return false;\n  }\n}\n"
+  });
+
+  const graph = await buildCodeGraph(fixture);
+
+  assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes('src/service.ts') && edge.target.includes(':save') && edge.confidence === 'typecheck'));
+  assert.equal(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes('src/other.ts')), false);
+});
+
 test('buildCodeGraph resolves package imports aliases', async () => {
   const fixture = await createFixture({
     'package.json': JSON.stringify({ imports: { '#services/*': './src/services/*' } }),

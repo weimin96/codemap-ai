@@ -21,6 +21,7 @@ export async function buildCodeGraph({ root, scan }) {
   const symbolById = new Map();
   const symbolsByName = new Map();
   const importResolver = await buildImportResolver(root, filePathSet);
+  const typeCheckerContext = buildTypeCheckerContext(root, graphFiles);
   const importBindingsByFile = new Map();
   const reExportBindingsByFile = new Map();
   const sourceFilesByPath = new Map();
@@ -47,8 +48,7 @@ export async function buildCodeGraph({ root, scan }) {
       pushWarning(warnings, { path: file.path, kind: 'skipped_file', message: '文件超过代码图谱解析大小限制' });
       continue;
     }
-    const read = await readGraphFile(root, file.path);
-    const sourceFile = parseSourceFile(file.path, read.content, warnings);
+    const sourceFile = typeCheckerContext.sourceFilesByPath.get(file.path) || await parseGraphSourceFile(root, file.path, warnings);
     if (!sourceFile) continue;
     sourceFilesByPath.set(file.path, sourceFile);
     const imports = extractImports(sourceFile);
@@ -78,7 +78,7 @@ export async function buildCodeGraph({ root, scan }) {
     for (const symbol of fileSymbols) {
       const source = symbolById.get(symbol.id);
       if (!source) continue;
-      for (const call of extractCalls(sourceFile, symbol.startLine, symbol.endLine)) {
+      for (const call of extractCalls(sourceFile, symbol.startLine, symbol.endLine, typeCheckerContext)) {
         const target = resolveCallTarget(call, file.path, symbol.id, symbolById, symbolsByName, importBindingsByFile.get(file.path), reExportBindingsByFile);
         if (!target) {
           pushWarning(warnings, { path: file.path, kind: 'unresolved_call', message: `无法解析调用：${call.name}` });
@@ -189,6 +189,33 @@ function directoryId(directoryPath) {
 function parentDirectory(filePath) {
   const directory = path.posix.dirname(filePath);
   return directory === '.' ? '' : directory;
+}
+
+function buildTypeCheckerContext(root, graphFiles) {
+  const absoluteFiles = graphFiles.filter((file) => file.size <= MAX_GRAPH_FILE_BYTES).map((file) => path.join(root, file.path));
+  const program = ts.createProgram(absoluteFiles, {
+    allowJs: true,
+    checkJs: false,
+    jsx: ts.JsxEmit.Preserve,
+    noEmit: true,
+    target: ts.ScriptTarget.Latest,
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeJs,
+    skipLibCheck: true
+  });
+  const checker = program.getTypeChecker();
+  const sourceFilesByPath = new Map();
+  for (const sourceFile of program.getSourceFiles()) {
+    if (sourceFile.isDeclarationFile) continue;
+    const relPath = toPosix(path.relative(root, sourceFile.fileName));
+    sourceFilesByPath.set(relPath, sourceFile);
+  }
+  return { checker, sourceFilesByPath, root };
+}
+
+async function parseGraphSourceFile(root, relPath, warnings) {
+  const read = await readGraphFile(root, relPath);
+  return parseSourceFile(relPath, read.content, warnings);
 }
 
 async function readGraphFile(root, relPath) {
@@ -449,16 +476,32 @@ function normalizeCompilerPath(value) {
   return toPosix(path.posix.normalize(String(value || '').replace(/\\/g, '/'))).replace(/^\.\//, '');
 }
 
-function extractCalls(sourceFile, startLine, endLine) {
+function extractCalls(sourceFile, startLine, endLine, typeCheckerContext = null) {
   const calls = [];
   walk(sourceFile, (node) => {
     if (!ts.isCallExpression(node)) return;
     const line = nodeLine(sourceFile, node);
     if (line < startLine || line > endLine) return;
     const call = callName(node.expression);
-    if (call) calls.push({ ...call, line });
+    if (call) calls.push({ ...call, line, resolved: resolveCallWithTypeChecker(typeCheckerContext, node.expression) });
   });
   return calls;
+}
+
+function resolveCallWithTypeChecker(typeCheckerContext, expression) {
+  const checker = typeCheckerContext?.checker;
+  if (!checker) return null;
+  const targetNode = ts.isPropertyAccessExpression(expression) ? expression.name : expression;
+  let symbol = checker.getSymbolAtLocation(targetNode);
+  if (!symbol) return null;
+  if (symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+  const declaration = symbol.declarations?.find((item) => !item.getSourceFile().isDeclarationFile);
+  if (!declaration) return null;
+  const sourceFile = declaration.getSourceFile();
+  const relPath = toPosix(path.relative(typeCheckerContext.root, sourceFile.fileName));
+  const nameNode = declaration.name;
+  const name = nameNode && ts.isIdentifier(nameNode) ? nameNode.text : symbol.getName();
+  return { path: relPath, name };
 }
 
 function callName(expression) {
@@ -504,6 +547,11 @@ function resolveCallTarget(call, fromPath, sourceId, symbolById, symbolsByName, 
       const throughBarrel = resolveImportedSymbol(reExported, sourceId, symbolsByName);
       if (throughBarrel) return throughBarrel;
     }
+  }
+  if (call.receiver && call.resolved?.path && call.resolved?.name) {
+    const resolvedCandidates = (symbolsByName.get(call.resolved.name) || [])
+      .filter((node) => node.path === call.resolved.path && node.id !== sourceId);
+    if (resolvedCandidates.length === 1) return { node: resolvedCandidates[0], confidence: 'typecheck' };
   }
   const candidates = symbolsByName.get(name) || [];
   const local = candidates.find((node) => node.path === fromPath && node.id !== sourceId);
