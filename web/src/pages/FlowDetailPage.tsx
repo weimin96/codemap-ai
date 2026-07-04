@@ -5,18 +5,23 @@ import { EmptyState, PriorityBadge, SectionTitle } from '@/components/PageBlocks
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { CoreFlow, FlowStep, Report } from '@/types';
+import { VerificationControl } from '@/components/VerificationControl';
+import type { CoreFlow, FlowStep, Report, VerificationStatus } from '@/types';
 
 export function FlowDetailPage({
   report,
   activeFlow,
+  loading,
   onBack,
-  onOpenStep
+  onOpenStep,
+  onUpdateVerification
 }: {
   report: Report | null;
   activeFlow: CoreFlow | null;
+  loading: string;
   onBack: () => void;
   onOpenStep: (step: FlowStep) => void;
+  onUpdateVerification: (kind: 'flow', id: string, status: VerificationStatus) => void;
 }) {
   const flow = activeFlow || report?.flows?.[0] || null;
   if (!flow) return <EmptyState text="暂无链路信息。" />;
@@ -37,11 +42,14 @@ export function FlowDetailPage({
             <h1 className="text-2xl font-bold text-slate-950">{flow.name}</h1>
             <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">触发：{flow.trigger || '未识别触发条件'}</p>
           </div>
-          <div className="grid w-[420px] grid-cols-4 gap-3 text-center">
-            <Metric label="步骤" value={flow.steps.length} />
+          <div className="w-[440px] space-y-4">
+            <VerificationControl status={flow.verificationStatus} disabled={loading === 'verification'} onChange={(status) => onUpdateVerification('flow', flow.id || flow.name, status)} />
+            <div className="grid grid-cols-4 gap-3 text-center">
+              <Metric label="步骤" value={flow.steps.length} />
             <Metric label="读取" value={flow.dataReads?.length || 0} />
             <Metric label="写入" value={flow.dataWrites?.length || 0} />
-            <Metric label="风险" value={relatedRisks.length} />
+              <Metric label="风险" value={relatedRisks.length} />
+            </div>
           </div>
         </div>
       </CardContent>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AiConfig, AskAnswer, AskThreadEntry, CodeGraph, CoreFlow, FilePayload, ProjectPayload, Report, ScanFile, SymbolInfo } from '@/types';
+import type { AiConfig, AskAnswer, AskThreadEntry, CodeGraph, CoreFlow, FilePayload, ProjectPayload, Report, ScanFile, SymbolInfo, VerificationStatus } from '@/types';
 
 const ASK_THREADS_STORAGE_KEY = 'codeatlas.askThreads.v1';
 
@@ -131,6 +131,27 @@ export function useWorkbenchData() {
     setResults(data.results);
   }
 
+  async function updateVerification(kind: 'module' | 'flow' | 'risk' | 'entity', id: string, verificationStatus: VerificationStatus) {
+    setLoading('verification');
+    try {
+      const data = await requestJson<{ report: Report }>('/api/verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, id, verificationStatus })
+      });
+      setReport(data.report);
+      setPayload((current) => current ? { ...current, report: data.report } : current);
+      const refreshedFlow = activeFlow ? data.report.flows.find((flow) => (flow.id || flow.name) === (activeFlow.id || activeFlow.name)) : null;
+      const refreshedRisk = activeRisk ? data.report.risks.find((risk) => (risk.id || risk.title) === (activeRisk.id || activeRisk.title)) : null;
+      if (refreshedFlow) setActiveFlow(refreshedFlow);
+      if (refreshedRisk) setActiveRisk(refreshedRisk);
+    } catch (error) {
+      setAnswer(`确认状态更新失败：${formatError(error)}`);
+    } finally {
+      setLoading('');
+    }
+  }
+
   async function loadCodeGraph() {
     setLoading('code-graph');
     try {
@@ -218,6 +239,7 @@ export function useWorkbenchData() {
     analyze,
     rescan,
     runSearch,
+    updateVerification,
     loadCodeGraph,
     ask
   };

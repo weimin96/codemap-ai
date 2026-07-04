@@ -5,19 +5,24 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { VerificationControl } from '@/components/VerificationControl';
 import { cn } from '@/lib/utils';
-import type { Report, RiskItem } from '@/types';
+import type { Report, RiskItem, VerificationStatus } from '@/types';
 
 export function RiskPage({
   report,
   activeRisk,
+  loading,
   onSelectRisk,
-  onOpenRiskCode
+  onOpenRiskCode,
+  onUpdateVerification
 }: {
   report: Report | null;
   activeRisk: RiskItem | null;
+  loading: string;
   onSelectRisk: (risk: RiskItem) => void;
   onOpenRiskCode: (risk: RiskItem) => void;
+  onUpdateVerification: (kind: 'risk', id: string, status: VerificationStatus) => void;
 }) {
   const risks = report?.risks || [];
   const high = risks.filter((risk) => risk.level === 'high').length;
@@ -80,12 +85,12 @@ export function RiskPage({
         </CardContent>
       </Card>
 
-      <RiskDetailPanel risk={selected} onOpenRiskCode={onOpenRiskCode} />
+      <RiskDetailPanel risk={selected} loading={loading} onOpenRiskCode={onOpenRiskCode} onUpdateVerification={onUpdateVerification} />
     </div>
   </div>;
 }
 
-function RiskDetailPanel({ risk, onOpenRiskCode }: { risk: RiskItem | null; onOpenRiskCode: (risk: RiskItem) => void }) {
+function RiskDetailPanel({ risk, loading, onOpenRiskCode, onUpdateVerification }: { risk: RiskItem | null; loading: string; onOpenRiskCode: (risk: RiskItem) => void; onUpdateVerification: (kind: 'risk', id: string, status: VerificationStatus) => void }) {
   return <Card>
     <CardContent className="p-5">
       <SectionTitle title="风险详情" description="解释影响范围、验证步骤和代码证据。" />
@@ -97,6 +102,8 @@ function RiskDetailPanel({ risk, onOpenRiskCode }: { risk: RiskItem | null; onOp
           </div>
           <Button size="sm" variant="outline" onClick={() => onOpenRiskCode(risk)}><Code2 size={14} />查看代码</Button>
         </div>
+
+        <VerificationControl status={risk.verificationStatus} disabled={loading === 'verification'} onChange={(status) => onUpdateVerification('risk', risk.id || risk.title, status)} />
 
         <DetailBlock icon={<TriangleAlert size={16} />} title="为什么危险" content={risk.reason} />
         <DetailBlock icon={<Target size={16} />} title="影响范围" content={risk.impact || '暂无明确影响范围。'} />

@@ -4,18 +4,23 @@ import { EmptyState, PriorityBadge, RiskBadge, SectionTitle } from '@/components
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { CodeReference, ProjectModule, Report } from '@/types';
+import { VerificationControl } from '@/components/VerificationControl';
+import type { CodeReference, ProjectModule, Report, VerificationStatus } from '@/types';
 
 export function ModuleDetailPage({
   report,
   activeModuleId,
+  loading,
   onBack,
-  onOpenFile
+  onOpenFile,
+  onUpdateVerification
 }: {
   report: Report | null;
   activeModuleId: string;
+  loading: string;
   onBack: () => void;
   onOpenFile: (reference: CodeReference) => void;
+  onUpdateVerification: (kind: 'module', id: string, status: VerificationStatus) => void;
 }) {
   const module = findModule(report?.modules || [], activeModuleId);
   if (!module) return <EmptyState text="未选择模块。" />;
@@ -37,11 +42,14 @@ export function ModuleDetailPage({
             <h1 className="text-2xl font-bold text-slate-950">{module.name}</h1>
             <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-600">{module.summary || module.responsibility || '暂无模块职责说明。'}</p>
           </div>
-          <div className="grid w-[360px] grid-cols-2 gap-3">
-            <Metric icon={<FileCode2 size={17} />} label="关键文件" value={evidence.length || module.paths.length} />
+          <div className="w-[420px] space-y-4">
+            <VerificationControl status={module.verificationStatus} disabled={loading === 'verification'} onChange={(status) => onUpdateVerification('module', module.id || module.name, status)} />
+            <div className="grid grid-cols-2 gap-3">
+              <Metric icon={<FileCode2 size={17} />} label="关键文件" value={evidence.length || module.paths.length} />
             <Metric icon={<Route size={17} />} label="相关链路" value={flows.length} />
             <Metric icon={<Boxes size={17} />} label="业务能力" value={module.businessCapabilities?.length || 0} />
-            <Metric icon={<ShieldAlert size={17} />} label="风险" value={risks.length} />
+              <Metric icon={<ShieldAlert size={17} />} label="风险" value={risks.length} />
+            </div>
           </div>
         </div>
       </CardContent>

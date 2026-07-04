@@ -2,7 +2,7 @@ import { lazy, Suspense, useRef, useState } from 'react';
 import type { OnMount } from '@monaco-editor/react';
 import { AppShell, type PageId } from '@/components/AppShell';
 import { useWorkbenchData } from '@/hooks/useWorkbenchData';
-import type { CodeReference, CoreFlow, FlowStep, ProjectModule, RiskItem, SymbolInfo } from '@/types';
+import type { CodeReference, CoreFlow, FlowStep, ProjectModule, RiskItem, SymbolInfo, VerificationStatus } from '@/types';
 
 const AskPanel = lazy(() => import('@/components/AskPanel').then((module) => ({ default: module.AskPanel })));
 const CodeWorkspace = lazy(() => import('@/components/CodeWorkspace').then((module) => ({ default: module.CodeWorkspace })));
@@ -84,6 +84,10 @@ export default function App() {
     void workbench.openFile(path, line);
   }
 
+  function changeVerification(kind: 'module' | 'flow' | 'risk' | 'entity', id: string, status: VerificationStatus) {
+    void workbench.updateVerification(kind, id, status);
+  }
+
   function openSymbol(symbol: SymbolInfo) {
     workbench.setCurrentSymbol(symbol);
     workbench.setSelection({ startLine: symbol.startLine, endLine: symbol.endLine });
@@ -112,11 +116,11 @@ export default function App() {
     <Suspense fallback={<div className="rounded-lg border bg-white p-6 text-sm text-slate-500">页面加载中...</div>}>
       {activePage === 'overview' && <OverviewPage payload={workbench.payload} report={workbench.report} onNavigate={setActivePage} />}
       {activePage === 'modules' && <ModuleMapPage payload={workbench.payload} report={workbench.report} onOpenModule={openModule} />}
-      {activePage === 'module-detail' && <ModuleDetailPage report={workbench.report} activeModuleId={activeModuleId} onBack={() => setActivePage('modules')} onOpenFile={openCodeReference} />}
+      {activePage === 'module-detail' && <ModuleDetailPage report={workbench.report} activeModuleId={activeModuleId} loading={workbench.loading} onBack={() => setActivePage('modules')} onOpenFile={openCodeReference} onUpdateVerification={changeVerification} />}
       {activePage === 'flows' && <FlowPage report={workbench.report} activeFlow={workbench.activeFlow} onSelectFlow={workbench.setActiveFlow} onOpenStep={openFlowStep} onOpenFlowDetail={openFlowDetail} onNavigate={setActivePage} />}
-      {activePage === 'flow-detail' && <FlowDetailPage report={workbench.report} activeFlow={workbench.activeFlow} onBack={() => setActivePage('flows')} onOpenStep={openFlowStep} />}
+      {activePage === 'flow-detail' && <FlowDetailPage report={workbench.report} activeFlow={workbench.activeFlow} loading={workbench.loading} onBack={() => setActivePage('flows')} onOpenStep={openFlowStep} onUpdateVerification={changeVerification} />}
       {activePage === 'data' && <DataModelPage payload={workbench.payload} report={workbench.report} />}
-      {activePage === 'risks' && <RiskPage report={workbench.report} activeRisk={workbench.activeRisk} onSelectRisk={workbench.setActiveRisk} onOpenRiskCode={openRiskCode} />}
+      {activePage === 'risks' && <RiskPage report={workbench.report} activeRisk={workbench.activeRisk} loading={workbench.loading} onSelectRisk={workbench.setActiveRisk} onOpenRiskCode={openRiskCode} onUpdateVerification={changeVerification} />}
       {activePage === 'graph' && <CodeGraphPage graph={workbench.codeGraph} loading={workbench.loading} onLoadGraph={workbench.loadCodeGraph} onOpenFile={openGraphFile} />}
       {activePage === 'history' && <HistoryPage report={workbench.report} askThreads={workbench.askThreads} />}
       {activePage === 'code' && <div className="grid h-[calc(100vh-104px)] grid-cols-[minmax(680px,1fr)_380px] gap-4">
