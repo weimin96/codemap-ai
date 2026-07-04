@@ -167,6 +167,7 @@ API Key: 留空
 - 追问会绑定当前文件、选中行、当前符号、当前链路和当前风险。
 - 追问返回结构化答案：结论、证据、风险、下一步验证动作、相关文件和可信度。
 - 支持导出 `repo-map.json`、`project-context.md` 和 `/api/onboarding-docs` 接管文档集。
+- 系统顶部“接管文档”按钮会下载合并后的 `codeatlas-onboarding-docs.md`。
 - `/api/onboarding-docs` 返回 `PROJECT_MAP.md`、`MODULES.md`、`CORE_FLOWS.md`、`DATA_MODEL.md`、`RISK_REGISTER.md`、`READING_PLAN.md`、`QUESTIONS.md`。
 - 支持 OpenAI-compatible、OpenAI 和 Ollama。
 
@@ -190,8 +191,10 @@ curl http://127.0.0.1:7890/api/repo-map
 # Context Pack
 curl http://127.0.0.1:7890/api/context-pack?format=markdown
 
-# 接管文档集
+# 接管文档集 API
 curl http://127.0.0.1:7890/api/onboarding-docs
+
+# 或在系统顶部点击“接管文档”，下载合并后的 Markdown 文件
 ```
 
 接管文档集当前以 JSON 返回多个 Markdown 文件名和内容，适合后续接入前端批量下载或本地写盘。

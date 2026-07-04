@@ -35,6 +35,7 @@ export function AppShell({
   onNavigate,
   onAnalyze,
   onExportReport,
+  onExportDocs,
   onOpenSettings
 }: {
   activePage: PageId;
@@ -45,6 +46,7 @@ export function AppShell({
   onNavigate: (page: PageId) => void;
   onAnalyze: () => void;
   onExportReport: () => void;
+  onExportDocs: () => void;
   onOpenSettings: () => void;
 }) {
   return <div className="flex h-screen flex-col bg-background text-foreground">
@@ -65,6 +67,7 @@ export function AppShell({
       <div className="flex shrink-0 items-center gap-2">
         <Button size="sm" variant="outline" onClick={onAnalyze} disabled={!!loading}>{hasAiAnalysis ? <RefreshCw size={15} /> : <Sparkles size={15} />}{hasAiAnalysis ? '重新分析' : '开始分析'}</Button>
         <Button size="sm" variant="outline" onClick={onExportReport}><Bot size={15} />导出上下文</Button>
+        <Button size="sm" variant="outline" onClick={onExportDocs}><FileText size={15} />接管文档</Button>
         <Button size="icon" variant="outline" onClick={onOpenSettings} aria-label="AI 设置" title="AI 设置"><Settings size={16} /></Button>
       </div>
     </header>

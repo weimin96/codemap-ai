@@ -37,6 +37,17 @@ export default function App() {
     window.location.href = '/api/context-pack?format=markdown';
   }
 
+  async function exportOnboardingDocs() {
+    const response = await fetch('/api/onboarding-docs');
+    const data = await response.json().catch(() => null) as { names?: string[]; docs?: Record<string, string>; error?: string } | null;
+    if (!response.ok || data?.error) {
+      throw new Error(data?.error || `导出接管文档失败：${response.status}`);
+    }
+    const names = data?.names || Object.keys(data?.docs || {});
+    const markdown = names.map((name) => `# ${name}\n\n${data?.docs?.[name] || ''}`).join('\n\n---\n\n');
+    downloadText('codeatlas-onboarding-docs.md', markdown || '# CodeAtlas Onboarding Docs\n\n暂无文档。');
+  }
+
   function openFlowStep(step: FlowStep) {
     if (!step.path) return;
     setActivePage('code');
@@ -95,6 +106,7 @@ export default function App() {
     onNavigate={setActivePage}
     onAnalyze={workbench.analyze}
     onExportReport={exportContextPack}
+    onExportDocs={() => { void exportOnboardingDocs(); }}
     onOpenSettings={() => setSettingsOpen(true)}
   >
     <Suspense fallback={<div className="rounded-lg border bg-white p-6 text-sm text-slate-500">页面加载中...</div>}>
@@ -143,4 +155,16 @@ export default function App() {
       {settingsOpen && <SettingsPage open={settingsOpen} config={workbench.config} loading={workbench.loading} onOpenChange={setSettingsOpen} onConfigChange={workbench.setConfig} onSaveConfig={workbench.saveConfig} />}
     </Suspense>
   </AppShell>;
+}
+
+function downloadText(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
