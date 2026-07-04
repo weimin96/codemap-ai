@@ -44,6 +44,27 @@ test('scanProject supports maxFiles limit', async () => {
   assert.ok(scan.skippedFiles.some((file) => file.reason === 'maxFiles'));
 });
 
+test('scanProject reuses persistent symbol cache entries', async () => {
+  const cacheDir = await fs.mkdtemp(path.join(os.tmpdir(), 'codemap-ai-symbol-cache-'));
+  const previousCacheDir = process.env.CODEMAP_AI_CACHE_DIR;
+  process.env.CODEMAP_AI_CACHE_DIR = cacheDir;
+  const root = await createProject({
+    'src/app.ts': 'export function start() { return true; }\n'
+  });
+
+  try {
+    const first = await scanProject(root, { useGit: false });
+    const second = await scanProject(root, { useGit: false });
+
+    assert.equal(first.cacheStats.symbolCacheMisses, 1);
+    assert.equal(second.cacheStats.symbolCacheHits, 1);
+    assert.equal(second.symbols[0].name, 'start');
+  } finally {
+    if (previousCacheDir === undefined) delete process.env.CODEMAP_AI_CACHE_DIR;
+    else process.env.CODEMAP_AI_CACHE_DIR = previousCacheDir;
+  }
+});
+
 test('scanProject prefers git file candidates when available', async (t) => {
   try {
     await execFileAsync('git', ['--version']);

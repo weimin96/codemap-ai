@@ -25,6 +25,7 @@
     "server/report-store.js",
     "server/scanner.js",
     "server/server.js",
+    "server/symbol-cache.js",
     "server/sqlite-store.js",
     "server/symbol-indexer.js",
     "server/verification.js",

@@ -4,6 +4,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { IGNORE_DIRS, isProbablyText, toPosix, readTextFileSafe } from './fs-utils.js';
 import { canExtractSymbols, extractSymbols } from './symbol-indexer.js';
+import { openSymbolCache } from './symbol-cache.js';
 import { loadIgnoreRules } from './ignore-rules.js';
 import { buildRepoMap } from './repo-map.js';
 
@@ -36,7 +37,8 @@ const DEFAULT_SCAN_OPTIONS = {
   maxDepth: 8,
   maxFiles: 20_000,
   maxBytesTotal: 512 * 1024 * 1024,
-  useGit: true
+  useGit: true,
+  symbolCache: true
 };
 
 const PRIORITY_DIR_KEYWORDS = [
@@ -46,7 +48,7 @@ const PRIORITY_DIR_KEYWORDS = [
 ];
 
 function createScanState() {
-  return { fileCount: 0, bytesTotal: 0, skippedFiles: [] };
+  return { fileCount: 0, bytesTotal: 0, skippedFiles: [], symbolCache: null, symbolCacheHits: 0, symbolCacheMisses: 0 };
 }
 
 function normalizeScanOptions(options = {}) {
@@ -54,7 +56,8 @@ function normalizeScanOptions(options = {}) {
     maxDepth: normalizePositiveInteger(options.maxDepth, DEFAULT_SCAN_OPTIONS.maxDepth, 'maxDepth'),
     maxFiles: normalizePositiveInteger(options.maxFiles, DEFAULT_SCAN_OPTIONS.maxFiles, 'maxFiles'),
     maxBytesTotal: normalizePositiveInteger(options.maxBytesTotal, DEFAULT_SCAN_OPTIONS.maxBytesTotal, 'maxBytesTotal'),
-    useGit: options.useGit === undefined ? DEFAULT_SCAN_OPTIONS.useGit : Boolean(options.useGit)
+    useGit: options.useGit === undefined ? DEFAULT_SCAN_OPTIONS.useGit : Boolean(options.useGit),
+    symbolCache: options.symbolCache === undefined ? DEFAULT_SCAN_OPTIONS.symbolCache : Boolean(options.symbolCache)
   };
 }
 
@@ -162,7 +165,7 @@ async function addFileItem(root, posix, depth, options, state, result) {
   const language = languageFromPath(posix);
   const text = isProbablyText(absoluteFile);
   const symbols = text && canExtractSymbols(language)
-    ? await extractFileSymbols(root, posix, language, stat.size)
+    ? await extractFileSymbols(root, posix, language, stat, state)
     : [];
   result.push({
     path: posix,
@@ -177,11 +180,19 @@ async function addFileItem(root, posix, depth, options, state, result) {
   });
 }
 
-async function extractFileSymbols(root, relPath, language, size) {
-  if (size > 220_000) return [];
+async function extractFileSymbols(root, relPath, language, stat, state) {
+  if (stat.size > 220_000) return [];
+  const cached = state.symbolCache?.get(relPath, stat, language);
+  if (cached) {
+    state.symbolCacheHits += 1;
+    return cached;
+  }
+  state.symbolCacheMisses += 1;
   const file = await readScannerFile(root, relPath, 220_000);
   if (file.truncated) throw new Error(`Symbol extraction input unexpectedly truncated: ${relPath}`);
-  return extractSymbols({ path: relPath, language, content: file.content });
+  const symbols = extractSymbols({ path: relPath, language, content: file.content });
+  state.symbolCache?.set(relPath, stat, language, symbols);
+  return symbols;
 }
 
 function guessDirRole(relPath) {
@@ -217,10 +228,12 @@ export function languageFromPath(file) {
 export async function scanProject(root, options = {}) {
   const scanOptions = normalizeScanOptions(options);
   const scanState = createScanState();
+  scanState.symbolCache = scanOptions.symbolCache ? await openSymbolCache(root) : null;
   const shouldIgnore = await loadIgnoreRules(root);
   const items = scanOptions.useGit
     ? (await scanGitFiles(root, scanOptions, scanState)) || await walk(root, '', 0, scanOptions, scanState, [], shouldIgnore)
     : await walk(root, '', 0, scanOptions, scanState, [], shouldIgnore);
+  const symbolCacheSaved = scanState.symbolCache ? await scanState.symbolCache.save() : false;
   const files = items.filter((item) => item.type === 'file');
   const dirs = items.filter((item) => item.type === 'dir');
   const symbols = files.flatMap((file) => file.symbols || []);
@@ -236,6 +249,12 @@ export async function scanProject(root, options = {}) {
     totalSymbols: symbols.length,
     skippedFiles: scanState.skippedFiles,
     scanLimits: scanOptions,
+    cacheStats: {
+      symbolCache: Boolean(scanState.symbolCache),
+      symbolCacheHits: scanState.symbolCacheHits,
+      symbolCacheMisses: scanState.symbolCacheMisses,
+      symbolCacheSaved
+    },
     tree: compactTree(items, 320),
     files,
     symbols,
