@@ -23,7 +23,7 @@
 | 3 | complete | 新增 ModuleDetailPage，模块卡片进入详情而非代码页 | npm run typecheck |
 | 4 | complete | AI 分析 prompt 拆成四阶段结构要求，并保留兼容的 /api/analyze 输出 | npm run typecheck；node --check server/ai.js |
 | 5 | complete | 新增 FlowDetailPage，把核心链路升级成业务剧本页 | npm run typecheck |
-| 6 | pending | RiskPage 增加风险详情面板 | npm run typecheck |
+| 6 | complete | RiskPage 增加风险详情面板 | npm run typecheck |
 | 7 | pending | Context Pack 增加 overview/module/flow/risk/question mode | node --check server/context-pack.js |
 | 8 | pending | Ask 返回结构化答案并兼容现有文本展示 | npm run typecheck；node --check server/ai.js server/server.js |
 

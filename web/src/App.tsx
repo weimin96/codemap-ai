@@ -13,7 +13,7 @@ import { OverviewPage } from '@/pages/OverviewPage';
 import { RiskPage } from '@/pages/RiskPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { useWorkbenchData } from '@/hooks/useWorkbenchData';
-import type { CodeReference, CoreFlow, FlowStep, ProjectModule, SymbolInfo } from '@/types';
+import type { CodeReference, CoreFlow, FlowStep, ProjectModule, RiskItem, SymbolInfo } from '@/types';
 
 export default function App() {
   const [activePage, setActivePage] = useState<PageId>('overview');
@@ -61,6 +61,15 @@ export default function App() {
     void workbench.openFile(reference.path, reference.startLine);
   }
 
+  function openRiskCode(risk: RiskItem) {
+    workbench.setActiveRisk(risk);
+    const reference = risk.evidence?.[0];
+    const path = reference?.path || risk.path;
+    if (!path) return;
+    setActivePage('code');
+    void workbench.openFile(path, reference?.startLine || risk.startLine);
+  }
+
   function openSymbol(symbol: SymbolInfo) {
     workbench.setCurrentSymbol(symbol);
     workbench.setSelection({ startLine: symbol.startLine, endLine: symbol.endLine });
@@ -91,7 +100,7 @@ export default function App() {
     {activePage === 'flows' && <FlowPage report={workbench.report} activeFlow={workbench.activeFlow} onSelectFlow={workbench.setActiveFlow} onOpenStep={openFlowStep} onOpenFlowDetail={openFlowDetail} onNavigate={setActivePage} />}
     {activePage === 'flow-detail' && <FlowDetailPage report={workbench.report} activeFlow={workbench.activeFlow} onBack={() => setActivePage('flows')} onOpenStep={openFlowStep} />}
     {activePage === 'data' && <DataModelPage payload={workbench.payload} report={workbench.report} />}
-    {activePage === 'risks' && <RiskPage report={workbench.report} onNavigate={setActivePage} />}
+    {activePage === 'risks' && <RiskPage report={workbench.report} activeRisk={workbench.activeRisk} onSelectRisk={workbench.setActiveRisk} onOpenRiskCode={openRiskCode} />}
     {activePage === 'history' && <HistoryPage report={workbench.report} />}
     {activePage === 'code' && <div className="grid h-[calc(100vh-104px)] grid-cols-[minmax(680px,1fr)_380px] gap-4">
       <CodeWorkspace

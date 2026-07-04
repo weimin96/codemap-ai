@@ -17,3 +17,5 @@
 - 阶段 4 验证通过：npm run typecheck；node --check server/ai.js。
 - 阶段 5 完成：新增 FlowDetailPage；核心链路页可进入链路详情；详情页展示链路图、时序图、代码剧本、数据读写、异常路径、断点、风险和证据。
 - 阶段 5 验证通过：npm run typecheck。
+- 阶段 6 完成：RiskPage 增加可选择风险表和详情面板；详情展示影响、验证步骤、建议测试和代码证据；可跳转相关代码。
+- 阶段 6 验证通过：npm run typecheck。
