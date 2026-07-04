@@ -2,6 +2,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { Command } from 'commander';
 import open from 'open';
 import { startServer } from '../server/server.js';
@@ -10,6 +12,8 @@ import { buildCodeGraph } from '../server/code-graph.js';
 import { buildContextPack } from '../server/context-pack.js';
 import { buildRepoMap } from '../server/repo-map.js';
 import { createAccessToken, isLoopbackHost, parsePort, requireNetworkFlag } from './cli-options.js';
+
+const execFileAsync = promisify(execFile);
 
 if (process.argv[2] === 'pack') {
   await runPack(process.argv.slice(3));
@@ -65,6 +69,8 @@ async function runPack(argv) {
     .option('--include <patterns...>', 'include only matching paths for the pack output')
     .option('--ignore <patterns...>', 'exclude matching paths from the pack output')
     .option('--stdin', 'read additional include paths or patterns from stdin')
+    .option('--include-diffs', 'include current git diff in pack output')
+    .option('--include-logs', 'include recent git log in pack output')
     .option('-o, --output <file>', 'write output to a file instead of stdout')
     .parse(argv, { from: 'user' });
 
@@ -75,20 +81,26 @@ async function runPack(argv) {
   if (!Number.isFinite(maxChars) || maxChars <= 0) throw new Error('Invalid pack --max-chars value.');
 
   const projectDir = path.resolve(packProgram.args[0] || '.');
+  const outputPath = opts.output ? path.resolve(opts.output) : '';
+  const outputIgnore = outputPath ? relativePathIfInside(projectDir, outputPath) : '';
   const stdinInclude = opts.stdin ? await readStdinPatterns() : [];
   const scan = filterScanForPack(await scanProject(projectDir), {
     include: [...(opts.include || []), ...stdinInclude],
-    ignore: opts.ignore || []
+    ignore: [...(opts.ignore || []), outputIgnore].filter(Boolean)
   });
   const codeGraph = await buildCodeGraph({ root: projectDir, scan });
   const contextPack = await buildContextPack({ root: projectDir, scan, codeGraph, maxChars });
+  const gitContext = await collectGitContext(projectDir, {
+    includeDiffs: Boolean(opts.includeDiffs),
+    includeLogs: Boolean(opts.includeLogs)
+  });
   const output = format === 'json'
-    ? JSON.stringify(buildPackJson({ projectDir, scan, codeGraph, contextPack }), null, 2)
-    : contextPack.markdown;
+    ? JSON.stringify(buildPackJson({ projectDir, scan, codeGraph, contextPack, gitContext }), null, 2)
+    : appendGitContextMarkdown(contextPack.markdown, gitContext);
 
-  if (opts.output) {
-    await fs.mkdir(path.dirname(path.resolve(opts.output)), { recursive: true });
-    await fs.writeFile(path.resolve(opts.output), output, 'utf8');
+  if (outputPath) {
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await fs.writeFile(outputPath, output, 'utf8');
     return;
   }
   process.stdout.write(output);
@@ -105,6 +117,12 @@ async function readStdinPatterns() {
 
 function parseStdinPatterns(content) {
   return String(content || '').split(/\r?\n/).map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
+}
+
+function relativePathIfInside(root, target) {
+  const relative = path.relative(root, target);
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return '';
+  return toPosixPath(relative);
 }
 
 function filterScanForPack(scan, { include = [], ignore = [] } = {}) {
@@ -171,7 +189,31 @@ function toPosixPath(value) {
   return String(value || '').replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
-function buildPackJson({ projectDir, scan, codeGraph, contextPack }) {
+async function collectGitContext(projectDir, options = {}) {
+  const context = {};
+  if (options.includeDiffs) context.diff = await runGitText(projectDir, ['diff', '--', '.']);
+  if (options.includeLogs) context.log = await runGitText(projectDir, ['log', '--oneline', '--decorate', '-n', '20']);
+  return context;
+}
+
+async function runGitText(projectDir, args) {
+  try {
+    const { stdout } = await execFileAsync('git', args, { cwd: projectDir, maxBuffer: 2 * 1024 * 1024 });
+    return stdout.trim();
+  } catch (error) {
+    return `Unavailable: ${error instanceof Error ? error.message : String(error)}`;
+  }
+}
+
+function appendGitContextMarkdown(markdown, gitContext) {
+  if (!gitContext.diff && !gitContext.log) return markdown;
+  const lines = [markdown.trimEnd(), '', '## Git Context', ''];
+  if (gitContext.log) lines.push('### Recent Log', '', '```text', gitContext.log, '```', '');
+  if (gitContext.diff) lines.push('### Current Diff', '', '```diff', gitContext.diff, '```', '');
+  return lines.join('\n');
+}
+
+function buildPackJson({ projectDir, scan, codeGraph, contextPack, gitContext = {} }) {
   return {
     projectDir,
     generatedAt: contextPack.generatedAt,
@@ -187,6 +229,7 @@ function buildPackJson({ projectDir, scan, codeGraph, contextPack }) {
       totals: codeGraph.totals,
       warnings: codeGraph.warnings
     },
+    git: gitContext,
     contextPack: {
       mode: contextPack.mode,
       target: contextPack.target,
