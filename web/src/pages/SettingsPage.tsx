@@ -7,6 +7,12 @@ import { Select } from '@/components/ui/select';
 import type { AiConfig } from '@/types';
 
 const providerDefaults: Record<string, AiConfig> = {
+  auto: {
+    provider: 'auto',
+    baseURL: '',
+    model: 'auto',
+    apiKey: ''
+  },
   'openai-compatible': {
     provider: 'openai-compatible',
     baseURL: 'https://api.openai.com/v1',
@@ -64,6 +70,7 @@ const providerDefaults: Record<string, AiConfig> = {
 };
 
 const providerModels: Record<string, string[]> = {
+  auto: ['auto'],
   'openai-compatible': ['gpt-4.1-mini'],
   openai: ['gpt-4.1-mini'],
   deepseek: ['deepseek-v4-flash', 'deepseek-v4-pro'],
@@ -128,6 +135,7 @@ export function SettingsPage({
       <DialogBody className="grid gap-4">
         <Field label="提供商">
           <Select value={config.provider} onChange={(event) => updateConfig(providerConfig(config, event.target.value))}>
+            <option value="auto">Auto fallback</option>
             <option value="openai-compatible">OpenAI Compatible</option>
             <option value="openai">OpenAI</option>
             <option value="deepseek">DeepSeek</option>
@@ -176,6 +184,9 @@ export function SettingsPage({
 
 function providerConfig(config: AiConfig, provider: string): AiConfig {
   const defaults = providerDefaults[provider] || providerDefaults['openai-compatible'];
+  if (provider === 'auto') {
+    return { provider, baseURL: '', model: '', apiKey: config.apiKey === '********' ? '' : config.apiKey };
+  }
   if (provider === 'custom') {
     return { provider, baseURL: '', model: '', apiKey: config.apiKey === '********' ? '' : config.apiKey };
   }
@@ -188,6 +199,7 @@ function modelOptions(provider: string, currentModel: string) {
 }
 
 function validateConnectionConfig(config: AiConfig) {
+  if (config.provider === 'auto') return '';
   if (!config.baseURL.trim()) return '请先填写 Base URL。';
   if (!config.model.trim()) return '请先选择或填写 Model。';
   if (config.provider !== 'ollama' && !config.apiKey.trim() && config.apiKey !== '********') return '请先填写 API Key。';

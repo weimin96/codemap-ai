@@ -172,7 +172,8 @@ API Key: 留空
 - 支持导出 `repo-map.json`、`project-context.md` 和 `/api/onboarding-docs` 接管文档集。
 - 系统顶部“接管文档”按钮会下载合并后的 `codeatlas-onboarding-docs.md`。
 - `/api/onboarding-docs` 返回 `PROJECT_MAP.md`、`MODULES.md`、`CORE_FLOWS.md`、`DATA_MODEL.md`、`RISK_REGISTER.md`、`READING_PLAN.md`、`QUESTIONS.md`。
-- 支持 OpenAI-compatible、OpenAI 和 Ollama。
+- 支持 OpenAI-compatible、OpenAI、OpenRouter、DeepSeek、Kimi、智谱、SiliconFlow、Ollama 和 Auto fallback。
+- Auto fallback 会按 `ollama,openai-compatible,openrouter,openai` 顺序尝试；可通过 `PFO_AI_PROVIDER_PRIORITY` 覆盖。
 
 ## 明确失败策略
 
@@ -232,6 +233,7 @@ API Key 优先可通过环境变量提供。通过页面保存时，配置写入
 - `/api/onboarding-docs` 暂未提供前端批量下载按钮。
 - `test:e2e` 脚本已预留，但 Playwright 用例尚未落地。
 - release workflow 已提供 npm provenance 发布入口，但真实发布依赖仓库配置 `NPM_TOKEN`。
+- 多模型 fallback 已支持 `provider=auto`，但每个 provider 的独立 API Key / model UI 尚未展开。
 - 暂未支持多人协作或远程仓库托管。
 
 下一版建议：品牌命名统一、图谱持久化、AI Explain API、Playwright 关键路径测试、SQLite 接管知识库。

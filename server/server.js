@@ -229,6 +229,9 @@ async function mergeRuntimeConfig(bodyConfig) {
 
 async function testAiConnection(config) {
   const provider = config.provider || 'openai-compatible';
+  if (provider === 'auto') {
+    return { ok: true, provider, endpoint: 'auto fallback: ollama,openai-compatible,openrouter,openai', modelCount: 0, models: [] };
+  }
   const baseURL = config.baseURL || defaultBaseURL(provider);
   const candidates = provider === 'ollama' ? [joinProviderURL(baseURL, 'tags')] : buildModelsURLCandidates(baseURL, providerModelsURL(provider));
   const headers = provider === 'ollama' ? {} : authHeaders(config.apiKey);

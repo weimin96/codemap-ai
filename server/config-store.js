@@ -78,6 +78,7 @@ function defaultBaseURL(provider) {
   if (provider === 'zhipu') return 'https://open.bigmodel.cn/api/paas/v4';
   if (provider === 'siliconflow') return 'https://api.siliconflow.cn/v1';
   if (provider === 'openrouter') return 'https://openrouter.ai/api/v1';
+  if (provider === 'auto') return '';
   if (provider === 'custom') return '';
   return 'https://api.openai.com/v1';
 }
@@ -89,6 +90,7 @@ function defaultModel(provider) {
   if (provider === 'zhipu') return 'glm-5.1';
   if (provider === 'siliconflow') return 'Qwen/Qwen3-Coder-480B-A35B-Instruct';
   if (provider === 'openrouter') return 'anthropic/claude-sonnet-4.5';
+  if (provider === 'auto') return '';
   if (provider === 'custom') return '';
   return 'gpt-4.1-mini';
 }

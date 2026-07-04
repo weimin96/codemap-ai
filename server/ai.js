@@ -51,28 +51,75 @@ function defaultBaseURL(provider) {
 }
 
 export async function analyzeWithAI({ scan, chunks, contextPack, config }) {
-  const model = modelFromConfig(config);
   const prompt = buildAnalyzePrompt(scan, chunks, contextPack);
-  const result = await generateText({
-    model,
+  const result = await generateTextWithFallback({
+    config,
     system: SYSTEM_PROMPT,
     prompt,
     temperature: 0.15
   });
-  return await parseJsonResultWithRepair({ text: result.text, model, expectedSchema: 'project analysis report JSON' });
+  return await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema: 'project analysis report JSON' });
 }
 
 export async function askWithAI({ question, context, config }) {
-  const model = modelFromConfig(config);
   const prompt = buildAskPrompt(question, context);
-  const result = await generateText({
-    model,
+  const result = await generateTextWithFallback({
+    config,
     system: ASK_SYSTEM_PROMPT,
     prompt,
     temperature: 0.2
   });
-  const parsed = await parseJsonResultWithRepair({ text: result.text, model, expectedSchema: 'ask answer JSON' });
+  const parsed = await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema: 'ask answer JSON' });
   return validateAskAnswer(parsed);
+}
+
+async function generateTextWithFallback({ config, system, prompt, temperature }) {
+  const candidates = modelConfigCandidates(config);
+  const errors = [];
+  for (const candidate of candidates) {
+    const model = modelFromConfig(candidate);
+    try {
+      const result = await generateText({ model, system, prompt, temperature });
+      return { ...result, model, provider: candidate.provider };
+    } catch (error) {
+      errors.push(`${candidate.provider}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  throw new Error(`All AI providers failed: ${errors.join(' | ')}`);
+}
+
+export function modelConfigCandidates(config = {}) {
+  const provider = config.provider || process.env.PFO_AI_PROVIDER || 'openai-compatible';
+  if (provider !== 'auto') return [{ ...config, provider }];
+  const order = String(config.providerPriority || process.env.PFO_AI_PROVIDER_PRIORITY || 'ollama,openai-compatible,openrouter,openai')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  return order.map((item) => ({
+    ...config,
+    provider: item,
+    baseURL: providerBaseURLForAuto(config, item),
+    model: providerModelForAuto(config, item),
+    apiKey: providerApiKeyForAuto(config, item)
+  }));
+}
+
+function providerBaseURLForAuto(config, provider) {
+  if (config.baseURLs?.[provider]) return config.baseURLs[provider];
+  if (config.provider === provider && config.baseURL) return config.baseURL;
+  return defaultBaseURL(provider);
+}
+
+function providerModelForAuto(config, provider) {
+  if (config.models?.[provider]) return config.models[provider];
+  if (config.provider === provider && config.model) return config.model;
+  return defaultModel(provider);
+}
+
+function providerApiKeyForAuto(config, provider) {
+  if (config.apiKeys?.[provider]) return config.apiKeys[provider];
+  if (provider === 'ollama') return '';
+  return config.apiKey || process.env.PFO_AI_API_KEY || process.env.OPENAI_API_KEY;
 }
 
 const SYSTEM_PROMPT = `你是“项目快速接管工作台”的代码理解引擎。用户刚接手陌生项目，需要先通过你建立第一版项目地图，然后本人快速验证。
