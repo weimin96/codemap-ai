@@ -1,4 +1,5 @@
 import { readTextFileSafe } from './fs-utils.js';
+import { countTokens, estimateTokenCount } from './token-counter.js';
 import { scoreRepoFile } from './repo-map.js';
 
 const DEFAULT_MAX_CHARS = 120_000;
@@ -38,7 +39,7 @@ export async function buildContextPack({ root, scan, mode = 'overview', target =
       continue;
     }
     usedChars += read.content.length;
-    const estimatedTokens = estimateTokenCount(read.content);
+    const tokenCount = await countTokens(read.content);
     chunks.push({
       path: file.path,
       role: file.role,
@@ -48,16 +49,28 @@ export async function buildContextPack({ root, scan, mode = 'overview', target =
       mode: contextMode,
       symbols: file.symbols || [],
       content: read.content,
-      estimatedTokens,
+      estimatedTokens: tokenCount.tokens,
+      tokenCount,
       truncated: read.truncated
     });
   }
+
+  const combinedTokenCount = await countTokens(chunks.map((chunk) => chunk.content).join('\n'));
+  const maxTokenCount = await countTokens('x'.repeat(maxChars));
 
   return {
     generatedAt: new Date().toISOString(),
     mode: contextMode,
     target,
-    budget: { maxChars, usedChars, estimatedTokens: estimateTokenCount(chunks.map((chunk) => chunk.content).join('\n')), maxEstimatedTokens: estimateTokenCount('x'.repeat(maxChars)) },
+    budget: {
+      maxChars,
+      usedChars,
+      estimatedTokens: combinedTokenCount.tokens,
+      maxEstimatedTokens: maxTokenCount.tokens,
+      tokenPrecision: combinedTokenCount.precision,
+      tokenizer: combinedTokenCount.tokenizer,
+      tokenWarnings: [...combinedTokenCount.warnings, ...maxTokenCount.warnings]
+    },
     files: chunks.map(({ content, ...file }) => ({ ...file, charCount: content.length })),
     skippedFiles,
     chunks,
@@ -66,9 +79,7 @@ export async function buildContextPack({ root, scan, mode = 'overview', target =
   };
 }
 
-export function estimateTokenCount(text) {
-  return Math.ceil(String(text || '').length / 3);
-}
+export { estimateTokenCount } from './token-counter.js';
 
 export function detectSecretRisk({ path, content }) {
   if (SENSITIVE_PATH_PATTERN.test(path)) return { kind: 'sensitive_path', reason: 'Sensitive file path.' };
