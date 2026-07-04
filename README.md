@@ -154,6 +154,7 @@ codemap-ai /path/to/your/project --no-open
 codemap-ai pack /path/to/your/project --format markdown -o context.md
 codemap-ai pack https://github.com/org/repo --format markdown -o context.md
 codemap-ai pack /path/to/your/project --format json -o context.json
+codemap-ai pack /path/to/your/project --format xml -o context.xml
 codemap-ai pack /path/to/your/project --include src/** --ignore **/*.test.ts -o context.md
 git ls-files | codemap-ai pack /path/to/your/project --stdin -o context.md
 codemap-ai pack /path/to/your/project --include-diffs --include-logs -o context.md
