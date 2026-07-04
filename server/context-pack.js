@@ -5,9 +5,10 @@ const DEFAULT_MAX_CHARS = 120_000;
 const MAX_CHARS_PER_FILE = 28_000;
 const CONTEXT_MODES = new Set(['overview', 'module', 'flow', 'risk', 'question']);
 
-export async function buildContextPack({ root, scan, mode = 'overview', target = {}, maxChars = DEFAULT_MAX_CHARS }) {
+export async function buildContextPack({ root, scan, mode = 'overview', target = {}, maxChars = DEFAULT_MAX_CHARS, codeGraph = null }) {
   const contextMode = normalizeMode(mode);
-  const selected = selectContextFiles(scan, { mode: contextMode, target, maxChars });
+  const graphContext = buildGraphContext(codeGraph, target, contextMode);
+  const selected = selectContextFiles(scan, { mode: contextMode, target, maxChars, graphContext });
   const chunks = [];
   let usedChars = 0;
 
@@ -37,7 +38,8 @@ export async function buildContextPack({ root, scan, mode = 'overview', target =
     budget: { maxChars, usedChars },
     files: chunks.map(({ content, ...file }) => ({ ...file, charCount: content.length })),
     chunks,
-    markdown: buildContextMarkdown(scan, chunks, { maxChars, usedChars }, { mode: contextMode, target })
+    graphContext,
+    markdown: buildContextMarkdown(scan, chunks, { maxChars, usedChars }, { mode: contextMode, target, graphContext })
   };
 }
 
@@ -50,12 +52,12 @@ async function readContextFile(root, path, limit) {
 }
 
 export function selectContextFiles(scan, options = DEFAULT_MAX_CHARS) {
-  const { mode, target, maxChars } = normalizeSelectOptions(options);
+  const { mode, target, maxChars, graphContext } = normalizeSelectOptions(options);
   const reserve = 8_000;
   let estimated = 0;
   const candidates = scan.files
     .filter((file) => file.text && file.size < 600_000)
-    .map((file) => ({ ...file, contextScore: scoreContextFile(file, mode, target) }))
+    .map((file) => ({ ...file, contextScore: scoreContextFile(file, mode, target, graphContext) }))
     .sort((a, b) => b.contextScore - a.contextScore || a.path.localeCompare(b.path));
 
   const selected = [];
@@ -76,7 +78,8 @@ function normalizeSelectOptions(options) {
   return {
     mode: normalizeMode(options.mode),
     target: options.target || {},
-    maxChars: normalizeMaxChars(options.maxChars)
+    maxChars: normalizeMaxChars(options.maxChars),
+    graphContext: options.graphContext || { pathScores: new Map(), warnings: [], relatedPaths: [] }
   };
 }
 
@@ -97,7 +100,7 @@ function normalizeMaxChars(maxChars) {
   return value;
 }
 
-function scoreContextFile(file, mode = 'overview', target = {}) {
+function scoreContextFile(file, mode = 'overview', target = {}, graphContext = { pathScores: new Map() }) {
   let score = scoreRepoFile(file);
   const lower = file.path.toLowerCase();
   const targetTerms = extractTargetTerms(target);
@@ -113,6 +116,7 @@ function scoreContextFile(file, mode = 'overview', target = {}) {
   if (mode === 'flow') score += scoreFlowContext(lower, targetTerms);
   if (mode === 'risk') score += scoreRiskContext(lower, targetTerms);
   if (mode === 'question') score += scoreQuestionContext(lower, targetTerms);
+  score += graphContext.pathScores?.get(file.path) || 0;
 
   return score;
 }
@@ -144,6 +148,46 @@ function scoreQuestionContext(lower, targetTerms) {
   if (/readme|docs?\//.test(lower)) score += 10;
   if (matchesTarget(lower, targetTerms)) score += 100;
   return score;
+}
+
+export function buildGraphContext(codeGraph, target = {}, mode = 'overview') {
+  const pathScores = new Map();
+  const graph = codeGraph || { nodes: [], edges: [], warnings: [] };
+  const targetTerms = extractTargetTerms(target);
+  const targetPaths = extractTargetPaths(target);
+  const targetNodeIds = new Set();
+  for (const node of graph.nodes || []) {
+    const nameHit = targetTerms.some((term) => `${node.name} ${node.path || ''}`.toLowerCase().includes(term));
+    const pathHit = node.path && targetPaths.has(node.path);
+    if (nameHit || pathHit) targetNodeIds.add(node.id);
+  }
+  for (const node of graph.nodes || []) {
+    if (targetPaths.has(node.path)) addGraphScore(pathScores, node.path, 140);
+  }
+  for (const edge of graph.edges || []) {
+    const sourceHit = targetNodeIds.has(edge.source);
+    const targetHit = targetNodeIds.has(edge.target);
+    if (!sourceHit && !targetHit) continue;
+    const relatedId = sourceHit ? edge.target : edge.source;
+    const related = graph.nodes.find((node) => node.id === relatedId);
+    if (related?.path) addGraphScore(pathScores, related.path, edge.type === 'calls' ? 120 : 85);
+  }
+  if (mode === 'risk' || mode === 'question') {
+    for (const warning of graph.warnings || []) addGraphScore(pathScores, warning.path, 35);
+  }
+  const relatedPaths = Array.from(pathScores.entries()).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([path, score]) => ({ path, score }));
+  return { pathScores, relatedPaths, warnings: (graph.warnings || []).slice(0, 40) };
+}
+
+function addGraphScore(scores, path, value) {
+  if (!path) return;
+  scores.set(path, (scores.get(path) || 0) + value);
+}
+
+function extractTargetPaths(target) {
+  const values = [];
+  collectTargetValues(target, values);
+  return new Set(values.map((value) => String(value)).filter((value) => /[\\/]|\.[a-z0-9]+$/i.test(value)));
 }
 
 function extractTargetTerms(target) {
@@ -187,11 +231,18 @@ function buildContextMarkdown(scan, chunks, budget, metadata) {
     `Files: ${scan.totalFiles}`,
     `Symbols: ${scan.totalSymbols || 0}`,
     `Budget: ${budget.usedChars}/${budget.maxChars} chars`,
+    `Graph Related Files: ${(metadata.graphContext?.relatedPaths || []).length}`,
     '',
     '## Repo Map',
     '',
     '```json',
     JSON.stringify(scan.repoMap || {}, null, 2),
+    '```',
+    '',
+    '## Graph Context',
+    '',
+    '```json',
+    JSON.stringify({ relatedPaths: metadata.graphContext?.relatedPaths || [], warnings: metadata.graphContext?.warnings || [] }, null, 2),
     '```',
     '',
     '## Selected Files',

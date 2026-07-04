@@ -1,6 +1,6 @@
 import { readTextFileSafe } from './fs-utils.js';
 
-export async function enrichContext(root, context) {
+export async function enrichContext(root, context, codeGraph = null) {
   const next = { ...context };
   const pathCandidates = [context.currentFile?.path, context.filePath, context.path].filter(Boolean);
   if (pathCandidates.length) {
@@ -21,10 +21,27 @@ export async function enrichContext(root, context) {
     }
   }
 
+  if (codeGraph) next.graphNeighbors = graphNeighborsForContext(codeGraph, context);
+
   if (Array.isArray(context.activeFlow?.steps)) {
     next.flowStepSnippets = await readFlowStepSnippets(root, context.activeFlow.steps);
   }
   return next;
+}
+
+function graphNeighborsForContext(graph, context) {
+  const path = context.currentFile?.path || context.filePath || context.path || '';
+  const symbolId = context.currentSymbol?.id || '';
+  const nodes = graph.nodes || [];
+  const seedIds = new Set(nodes.filter((node) => node.id === symbolId || (path && node.path === path)).map((node) => node.id));
+  const neighbors = [];
+  for (const edge of graph.edges || []) {
+    if (!seedIds.has(edge.source) && !seedIds.has(edge.target)) continue;
+    const relatedId = seedIds.has(edge.source) ? edge.target : edge.source;
+    const related = nodes.find((node) => node.id === relatedId);
+    if (related) neighbors.push({ edgeType: edge.type, direction: seedIds.has(edge.source) ? 'out' : 'in', node: related });
+  }
+  return neighbors.slice(0, 30);
 }
 
 async function readFlowStepSnippets(root, steps) {

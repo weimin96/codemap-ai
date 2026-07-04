@@ -11,3 +11,5 @@
 - 阶段 24 验证通过：node --check server/server.js、node --check server/sqlite-store.js、npm run test、tsc --noEmit、vite build、npm run lint。
 - 阶段 25 完成：新增 WhyConnectedPanel，并接入模块详情、链路详情、风险详情和代码浏览器，提供模块文件归属、链路函数归属、风险影响链路、当前函数影响模块/链路等业务证据解释入口。
 - 阶段 25 验证通过：tsc --noEmit、vite build、npm run lint。
+- 阶段 26 完成：Context Pack 支持 buildGraphContext，将目标符号/文件的 calls/imports 邻居和 warnings 加入评分与 Markdown；analyze/context-pack/ask 路由会构建或复用 Code Graph 并注入上下文。
+- 阶段 26 验证通过：node --check server/context-pack.js、node --check server/context-enrichment.js、node --check server/server.js、npm run test、npm run lint。

@@ -104,7 +104,11 @@ export async function startServer({ projectDir, port, host }) {
       const config = await mergeRuntimeConfig(req.body?.config || {});
       cache.report = null;
       await deleteProjectReport(projectDir);
-      cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan });
+      if (!cache.codeGraph) {
+        cache.codeGraph = await buildCodeGraph({ root: projectDir, scan: cache.scan });
+        await recordCodeGraph(projectDir, cache.codeGraph);
+      }
+      cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan, codeGraph: cache.codeGraph });
       const report = await analyzeWithAI({ scan: cache.scan, chunks: cache.contextPack.chunks, contextPack: cache.contextPack, config });
       cache.report = normalizeReport(report, cache.contextPack, cache.scan);
       await writeProjectReport(projectDir, cache.report);
@@ -171,7 +175,11 @@ export async function startServer({ projectDir, port, host }) {
       const mode = String(req.query.mode || 'overview');
       const target = buildContextTarget(req.query);
       if (!cache.contextPack || mode !== 'overview' || Object.keys(target).length) {
-        cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan, mode, target });
+        if (!cache.codeGraph && (mode !== 'overview' || Object.keys(target).length)) {
+          cache.codeGraph = await buildCodeGraph({ root: projectDir, scan: cache.scan });
+          await recordCodeGraph(projectDir, cache.codeGraph);
+        }
+        cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan, mode, target, codeGraph: cache.codeGraph });
       }
       if (req.query.format === 'markdown') {
         res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
@@ -226,7 +234,15 @@ export async function startServer({ projectDir, port, host }) {
       const { question, context = {}, config: bodyConfig = {} } = req.body || {};
       if (!question || !String(question).trim()) throw new Error('question is required');
       const config = await mergeRuntimeConfig(bodyConfig);
-      const enrichedContext = await enrichContext(projectDir, context);
+      if (!cache.scan) {
+        cache.scan = await scanProject(projectDir);
+        await recordScanRun(projectDir, cache.scan);
+      }
+      if (!cache.codeGraph) {
+        cache.codeGraph = await buildCodeGraph({ root: projectDir, scan: cache.scan });
+        await recordCodeGraph(projectDir, cache.codeGraph);
+      }
+      const enrichedContext = await enrichContext(projectDir, context, cache.codeGraph);
       const answer = await askWithAI({ question: String(question), context: enrichedContext, config });
       await recordAskThread(projectDir, { question: String(question), context: enrichedContext, answer });
       res.json({ answer });

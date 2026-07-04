@@ -15,7 +15,7 @@
 | 23 | complete | Code Graph 可用性收口：范围、过滤、搜索、邻居高亮、业务回链 | typecheck、build、e2e |
 | 24 | complete | Explain cache 真正读写复用：后端缓存 API、AI miss、SQLite write、前端 debounce/cancel | test、typecheck、build、lint |
 | 25 | complete | Why Connected 业务入口：模块/链路/风险/代码浏览器解释入口 | typecheck、build、lint |
-| 26 | pending | Graph-aware Context Pack：flow/risk/question 引入 graph 邻居和路径 | test、node --check |
+| 26 | complete | Graph-aware Context Pack：flow/risk/question 引入 graph 邻居和路径 | test、node --check、lint |
 | 27 | pending | 多文件 zip 文档集：新增 CODE_GRAPH_SUMMARY、ANALYSIS_QUALITY，前端 zip 下载 | test、typecheck、build |
 | 28 | pending | README 同步与全量验证 | lint、test、e2e、build、dry-run |
 
