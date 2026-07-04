@@ -119,7 +119,7 @@ export default function App() {
       {activePage === 'module-detail' && <ModuleDetailPage report={workbench.report} activeModuleId={activeModuleId} loading={workbench.loading} onBack={() => setActivePage('modules')} onOpenFile={openCodeReference} onUpdateVerification={changeVerification} />}
       {activePage === 'flows' && <FlowPage report={workbench.report} activeFlow={workbench.activeFlow} onSelectFlow={workbench.setActiveFlow} onOpenStep={openFlowStep} onOpenFlowDetail={openFlowDetail} onNavigate={setActivePage} />}
       {activePage === 'flow-detail' && <FlowDetailPage report={workbench.report} activeFlow={workbench.activeFlow} loading={workbench.loading} onBack={() => setActivePage('flows')} onOpenStep={openFlowStep} onUpdateVerification={changeVerification} />}
-      {activePage === 'data' && <DataModelPage payload={workbench.payload} report={workbench.report} />}
+      {activePage === 'data' && <DataModelPage payload={workbench.payload} report={workbench.report} loading={workbench.loading} onUpdateVerification={changeVerification} />}
       {activePage === 'risks' && <RiskPage report={workbench.report} activeRisk={workbench.activeRisk} loading={workbench.loading} onSelectRisk={workbench.setActiveRisk} onOpenRiskCode={openRiskCode} onUpdateVerification={changeVerification} />}
       {activePage === 'graph' && <CodeGraphPage graph={workbench.codeGraph} loading={workbench.loading} onLoadGraph={workbench.loadCodeGraph} onOpenFile={openGraphFile} />}
       {activePage === 'history' && <HistoryPage report={workbench.report} askThreads={workbench.askThreads} />}
