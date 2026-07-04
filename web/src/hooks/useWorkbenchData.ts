@@ -99,12 +99,7 @@ export function useWorkbenchData() {
     try {
       const saved = await persistConfig();
       setConfig({ ...config, ...saved });
-      const data = await readAnalyzeStream('/api/analyze/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config }),
-        signal: controller.signal
-      }, setAnalysisProgress);
+      const data = await runAnalyzeRequest({ config, signal: controller.signal, onProgress: setAnalysisProgress });
       setReport(data.report);
       pushNotice('success', '分析完成', '已生成新的项目接管报告。');
     } catch (error) {
@@ -274,9 +269,25 @@ export function useWorkbenchData() {
   };
 }
 
+async function runAnalyzeRequest({ config, signal, onProgress }: { config: AiConfig; signal: AbortSignal; onProgress: (progress: AnalysisProgress) => void }): Promise<{ report: Report }> {
+  const init = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ config }),
+    signal
+  };
+  try {
+    return await readAnalyzeStream('/api/analyze/stream', init, onProgress);
+  } catch (error) {
+    if (!isHttpStatus(error, 404)) throw error;
+    onProgress({ phase: 'fallback', label: '使用兼容分析接口', value: 15 });
+    return await requestJson<{ report: Report }>('/api/analyze', init);
+  }
+}
+
 async function readAnalyzeStream(url: string, init: RequestInit, onProgress: (progress: AnalysisProgress) => void): Promise<{ report: Report }> {
   const response = await fetch(url, init);
-  if (!response.ok || !response.body) throw new Error(`请求失败：${response.status} ${response.statusText}`);
+  if (!response.ok || !response.body) throw await buildHttpError(response);
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -293,7 +304,7 @@ async function readAnalyzeStream(url: string, init: RequestInit, onProgress: (pr
       if (!event) continue;
       if (event.event === 'progress') onProgress(event.data as AnalysisProgress);
       if (event.event === 'done') donePayload = event.data as { report: Report };
-      if (event.event === 'error') throw new Error(String((event.data as { error?: string })?.error || '分析失败'));
+      if (event.event === 'error') throw new Error(`AI 分析失败：${String((event.data as { error?: string })?.error || '分析失败')}`);
     }
   }
   if (!donePayload) throw new Error('分析流未返回完成事件。');
@@ -309,11 +320,30 @@ function parseSseEvent(raw: string): { event: string; data: unknown } | null {
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
-  const data = await response.json();
-  if (!response.ok || data?.error) {
-    throw new Error(data?.error || `请求失败：${response.status} ${response.statusText}`);
-  }
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw await buildHttpError(response, data);
+  if (data?.error) throw new Error(data.error);
   return data as T;
+}
+
+async function buildHttpError(response: Response, data?: { error?: string } | null) {
+  const text = data?.error || await response.text().catch(() => '');
+  return new HttpStatusError(response.status, response.statusText, text);
+}
+
+class HttpStatusError extends Error {
+  constructor(public status: number, statusText: string, body = '') {
+    const detail = body ? `：${truncateErrorBody(body)}` : '';
+    super(`请求失败：${status} ${statusText}${detail}`);
+  }
+}
+
+function isHttpStatus(error: unknown, status: number) {
+  return error instanceof HttpStatusError && error.status === status;
+}
+
+function truncateErrorBody(value: string) {
+  return value.length > 160 ? `${value.slice(0, 160)}...` : value;
 }
 
 function formatError(error: unknown) {
