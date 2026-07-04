@@ -27,3 +27,5 @@
 - 旧 GitHub Actions secret `NPM_TOKEN` 已删除，`gh secret list` 当前无仓库 secret。
 - GitHub Actions 首次 OIDC 发布运行在 `pnpm install` 阶段失败：Corepack 选择 pnpm 11.9.0，pnpm 因 `esbuild@0.28.1` build script 未批准返回 `ERR_PNPM_IGNORED_BUILDS`。
 - 需要在 `package.json` 和 CI/release workflow 中固定 pnpm 版本，避免 runner 工具链漂移。
+- 第二次 GitHub Actions 发布运行通过了 install、typecheck、test、build 和 pack dry-run；`npm publish` 成功生成 provenance statement，但最终 PUT `@codemapai/codemap-ai` 返回 E404。
+- npm 官方文档说明 Trusted Publisher 需要在包设置中配置 GitHub user/org、repository、workflow filename 和 allowed actions；当前错误符合包级 Trusted Publisher 或 scope/package 权限未匹配。

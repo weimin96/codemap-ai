@@ -44,8 +44,8 @@
 | 34 | complete | 检查 npm 元数据、现有脚本、workflow 与发布状态 | package/workflow 文件审查 |
 | 35 | complete | 修改包名与发布配置，新增或调整 GitHub Actions | npm pack dry-run、typecheck |
 | 36 | complete | 配置 npm 认证与 GitHub secret | npm whoami、gh secret set |
-| 37 | in_progress | 发布到 npm 并确认结果 | GitHub Actions publish、npm view |
-| 38 | in_progress | 迁移 GitHub Actions 到 npm Trusted Publishing | workflow 审查、Actions 发布 |
+| 37 | blocked | 发布到 npm 并确认结果 | GitHub Actions publish、npm view |
+| 38 | complete | 迁移 GitHub Actions 到 npm Trusted Publishing | workflow 审查、Actions 发布 |
 
 ### 验证方式
 - 自动化：执行项目已有最小验证命令，如 `npm run typecheck`、`npm run pack:local` 或 `npm pack --dry-run`。
@@ -66,3 +66,4 @@
 | 阶段 38 需要区分 npm GitHub 账号关联与包级 Trusted Publisher | 按 npm Trusted Publishing 要求配置 workflow，发布结果以 GitHub Actions OIDC 运行为准 |
 | 阶段 38 首次 `gh secret delete` 使用了当前 gh 版本不支持的 `--yes` / `--repo` | 改为在当前仓库上下文删除 Actions secret |
 | 阶段 38 首次 GitHub Actions 发布在依赖安装阶段失败 | Corepack 选择 pnpm 11.9.0，因 `esbuild` build script 未批准导致 `ERR_PNPM_IGNORED_BUILDS`；改为固定 pnpm 10.24.0 |
+| 阶段 37 第二次 GitHub Actions 发布在 `npm publish` 阶段返回 E404 | workflow 已生成 provenance，说明 OIDC 可用；npm 包级 Trusted Publisher 或 scope/package 发布权限仍未匹配 |

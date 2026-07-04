@@ -27,3 +27,5 @@
 - 已删除旧 GitHub Actions `NPM_TOKEN` secret；`gh secret list` 当前无仓库 secret。
 - 首次 GitHub Actions 发布运行 `28703893271` 失败在 `pnpm install --frozen-lockfile`，原因是 pnpm 11.9.0 的 ignored builds 策略拦截 `esbuild@0.28.1`。
 - 已固定 `packageManager` 为 `pnpm@10.24.0`，并在 CI/release workflows 中显式 prepare 该 pnpm 版本。
+- 第二次 GitHub Actions 发布运行 `28703934127` 已通过 install、typecheck、test、build、pack dry-run；`npm publish` 生成 provenance 后返回 E404，包未发布。
+- 当前阻塞点转移到 npm 侧：需要为 `@codemapai/codemap-ai` 配置包级 Trusted Publisher，匹配 GitHub user/org `weimin96`、repo `CodeAtlas`、workflow filename `release.yml`，Allowed actions 包含 `npm publish`。
