@@ -304,7 +304,11 @@ async function readWorkspacePackages(root) {
         const packageDir = `${workspaceDir}/${entry}`;
         const packageJson = await readPackageJson(root, `${packageDir}/package.json`);
         if (!packageJson?.name) continue;
-        packages.set(packageJson.name, { dir: packageDir, entry: packageJson.module || packageJson.main || packageJson.types || 'index.ts' });
+        packages.set(packageJson.name, {
+          dir: packageDir,
+          entry: packageJson.module || packageJson.main || packageJson.types || 'index.ts',
+          exports: packageJson.exports
+        });
       }
     }
   } catch (_error) {
@@ -333,11 +337,30 @@ async function readPackageJson(root, relPath) {
 
 function resolveWorkspacePackageImport(specifier, workspacePackages, filePathSet) {
   const exact = workspacePackages.get(specifier);
-  if (exact) return resolveFromBase(exact.dir, stripBuildEntry(exact.entry), filePathSet) || resolveFromBase(exact.dir, 'src/index', filePathSet) || resolveFromBase(exact.dir, 'index', filePathSet);
+  if (exact) return resolveWorkspacePackageEntry(exact, '.', filePathSet);
   for (const [name, pkg] of workspacePackages) {
     if (!specifier.startsWith(`${name}/`)) continue;
     const subpath = specifier.slice(name.length + 1);
-    return resolveFromBase(pkg.dir, subpath, filePathSet);
+    return resolveWorkspacePackageEntry(pkg, `./${subpath}`, filePathSet) || resolveFromBase(pkg.dir, subpath, filePathSet);
+  }
+  return '';
+}
+
+function resolveWorkspacePackageEntry(pkg, exportKey, filePathSet) {
+  const exported = resolvePackageExport(pkg.exports, exportKey);
+  if (exported) return resolveFromBase(pkg.dir, stripBuildEntry(exported), filePathSet);
+  if (exportKey === '.') return resolveFromBase(pkg.dir, stripBuildEntry(pkg.entry), filePathSet) || resolveFromBase(pkg.dir, 'src/index', filePathSet) || resolveFromBase(pkg.dir, 'index', filePathSet);
+  return '';
+}
+
+function resolvePackageExport(exportsField, exportKey) {
+  if (!exportsField) return '';
+  if (typeof exportsField === 'string') return exportKey === '.' ? exportsField : '';
+  if (typeof exportsField !== 'object') return '';
+  const target = exportsField[exportKey];
+  if (typeof target === 'string') return target;
+  if (target && typeof target === 'object') {
+    return target.import || target.default || target.require || target.types || '';
   }
   return '';
 }
