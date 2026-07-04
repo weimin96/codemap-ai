@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { execFile } from 'node:child_process';
@@ -87,31 +88,58 @@ async function runPack(argv) {
     maxBytesTotal: opts.maxBytesTotal === undefined ? undefined : parsePositiveNumber(opts.maxBytesTotal, 'pack --max-bytes-total')
   };
 
-  const projectDir = path.resolve(packProgram.args[0] || '.');
-  const outputPath = opts.output ? path.resolve(opts.output) : '';
-  const outputIgnore = outputPath ? relativePathIfInside(projectDir, outputPath) : '';
-  const stdinInclude = opts.stdin ? await readStdinPatterns() : [];
-  const scan = filterScanForPack(await scanProject(projectDir, scanOptions), {
-    include: [...(opts.include || []), ...stdinInclude],
-    ignore: [...(opts.ignore || []), outputIgnore].filter(Boolean)
-  });
-  const codeGraph = await buildCodeGraph({ root: projectDir, scan });
-  const contextPack = await buildContextPack({ root: projectDir, scan, codeGraph, maxChars });
-  const gitContext = await collectGitContext(projectDir, {
-    includeDiffs: Boolean(opts.includeDiffs),
-    includeLogs: Boolean(opts.includeLogs)
-  });
-  const output = format === 'json'
-    ? JSON.stringify(buildPackJson({ projectDir, scan, codeGraph, contextPack, gitContext }), null, 2)
-    : appendGitContextMarkdown(contextPack.markdown, gitContext);
+  const workspace = await resolvePackWorkspace(packProgram.args[0] || '.');
+  const projectDir = workspace.projectDir;
+  try {
+    const outputPath = opts.output ? path.resolve(opts.output) : '';
+    const outputIgnore = outputPath ? relativePathIfInside(projectDir, outputPath) : '';
+    const stdinInclude = opts.stdin ? await readStdinPatterns() : [];
+    const scan = filterScanForPack(await scanProject(projectDir, scanOptions), {
+      include: [...(opts.include || []), ...stdinInclude],
+      ignore: [...(opts.ignore || []), outputIgnore].filter(Boolean)
+    });
+    const codeGraph = await buildCodeGraph({ root: projectDir, scan });
+    const contextPack = await buildContextPack({ root: projectDir, scan, codeGraph, maxChars });
+    const gitContext = await collectGitContext(projectDir, {
+      includeDiffs: Boolean(opts.includeDiffs),
+      includeLogs: Boolean(opts.includeLogs)
+    });
+    const output = format === 'json'
+      ? JSON.stringify(buildPackJson({ projectDir, source: workspace.source, scan, codeGraph, contextPack, gitContext }), null, 2)
+      : appendGitContextMarkdown(contextPack.markdown, gitContext);
 
-  if (outputPath) {
-    await fs.mkdir(path.dirname(outputPath), { recursive: true });
-    await fs.writeFile(outputPath, output, 'utf8');
-    return;
+    if (outputPath) {
+      await fs.mkdir(path.dirname(outputPath), { recursive: true });
+      await fs.writeFile(outputPath, output, 'utf8');
+      return;
+    }
+    process.stdout.write(output);
+    if (!output.endsWith('\n')) process.stdout.write('\n');
+  } finally {
+    await workspace.cleanup?.();
   }
-  process.stdout.write(output);
-  if (!output.endsWith('\n')) process.stdout.write('\n');
+}
+
+async function resolvePackWorkspace(input) {
+  const source = String(input || '.');
+  if (!isGitRemote(source)) return { projectDir: path.resolve(source), source: { type: 'local', value: source } };
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'codemap-ai-remote-'));
+  const projectDir = path.join(tempRoot, 'repo');
+  try {
+    await execFileAsync('git', ['clone', '--depth', '1', source, projectDir], { maxBuffer: 20 * 1024 * 1024 });
+  } catch (error) {
+    await fs.rm(tempRoot, { recursive: true, force: true });
+    throw new Error(`Failed to clone remote repository: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  return {
+    projectDir,
+    source: { type: 'git', value: source },
+    cleanup: () => fs.rm(tempRoot, { recursive: true, force: true })
+  };
+}
+
+function isGitRemote(value) {
+  return /^(https?:\/\/|git@|ssh:\/\/|file:\/\/)/.test(String(value || ''));
 }
 
 function parsePositiveNumber(value, label) {
@@ -226,9 +254,10 @@ function appendGitContextMarkdown(markdown, gitContext) {
   return lines.join('\n');
 }
 
-function buildPackJson({ projectDir, scan, codeGraph, contextPack, gitContext = {} }) {
+function buildPackJson({ projectDir, source = { type: 'local', value: projectDir }, scan, codeGraph, contextPack, gitContext = {} }) {
   return {
     projectDir,
+    source,
     generatedAt: contextPack.generatedAt,
     scan: {
       totalFiles: scan.totalFiles,
