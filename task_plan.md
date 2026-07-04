@@ -19,7 +19,7 @@
 | 0 | complete | 建立计划文件并确认现状 | git status |
 | 1 | complete | 报告 schema 增加 analysisQuality、dataModel、evidence，并增强 normalizer | npm run typecheck；node --check server |
 | 2 | complete | AppShell 顶部导航化，首页增加 Hero 与分析质量 | npm run typecheck |
-| 3 | pending | 新增 ModuleDetailPage，模块卡片进入详情而非代码页 | npm run typecheck |
+| 3 | complete | 新增 ModuleDetailPage，模块卡片进入详情而非代码页 | npm run typecheck |
 | 4 | pending | AI 分析 prompt 拆成四阶段结构要求，并保留兼容的 /api/analyze 输出 | npm run typecheck |
 
 ## 风险点
@@ -32,3 +32,4 @@
 |---|---|
 | planning skill 首次用相对 ~ 路径读取失败 | 改用用户目录绝对路径读取成功 |
 | 计划文件被 .gitignore 忽略，普通 git add 失败 | 使用 git add -f 仅强制纳入计划文件 |
+| ModuleDetailPage 证据数组类型推断为联合类型 | 显式声明 collectEvidence 返回 CodeReference[] |

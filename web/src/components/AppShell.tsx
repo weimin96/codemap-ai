@@ -5,7 +5,7 @@ import { StepProgress, type ProgressStep } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { ProjectPayload } from '@/types';
 
-export type PageId = 'overview' | 'modules' | 'flows' | 'data' | 'risks' | 'code' | 'history';
+export type PageId = 'overview' | 'modules' | 'module-detail' | 'flows' | 'data' | 'risks' | 'code' | 'history';
 
 const navItems: Array<{ id: PageId; label: string; icon: typeof Home }> = [
   { id: 'overview', label: '项目总览', icon: Home },
@@ -70,7 +70,7 @@ export function AppShell({
     <nav className="flex h-14 items-center gap-2 border-b bg-white px-6">
       {navItems.map((item) => {
         const Icon = item.icon;
-        const active = item.id === activePage;
+        const active = item.id === activePage || (activePage === 'module-detail' && item.id === 'modules');
         return <Button
           key={item.id}
           type="button"

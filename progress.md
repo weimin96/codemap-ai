@@ -10,3 +10,6 @@
 - 阶段 1 验证通过：npm run typecheck；node --check server/report-normalizer.js server/server.js。
 - 阶段 2 完成：AppShell 改为顶部项目栏和入口工具栏；Overview 增加项目 Hero 与分析质量卡片。
 - 阶段 2 验证通过：npm run typecheck。
+- 阶段 3 完成：新增 ModuleDetailPage；模块地图卡片和按钮进入模块详情；详情页代码证据可跳转代码浏览器。
+- 阶段 3 首次 typecheck 失败：证据数组类型推断过窄，已显式声明 CodeReference[]。
+- 阶段 3 验证通过：npm run typecheck。

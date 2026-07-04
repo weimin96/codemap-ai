@@ -6,15 +6,17 @@ import { CodeWorkspace } from '@/components/CodeWorkspace';
 import { DataModelPage } from '@/pages/DataModelPage';
 import { FlowPage } from '@/pages/FlowPage';
 import { HistoryPage } from '@/pages/HistoryPage';
+import { ModuleDetailPage } from '@/pages/ModuleDetailPage';
 import { ModuleMapPage } from '@/pages/ModuleMapPage';
 import { OverviewPage } from '@/pages/OverviewPage';
 import { RiskPage } from '@/pages/RiskPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { useWorkbenchData } from '@/hooks/useWorkbenchData';
-import type { FlowStep, SymbolInfo } from '@/types';
+import type { CodeReference, FlowStep, ProjectModule, SymbolInfo } from '@/types';
 
 export default function App() {
   const [activePage, setActivePage] = useState<PageId>('overview');
+  const [activeModuleId, setActiveModuleId] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const workbench = useWorkbenchData();
@@ -42,6 +44,17 @@ export default function App() {
     void workbench.openFile(step.path, step.startLine);
   }
 
+  function openModule(module: ProjectModule) {
+    setActiveModuleId(module.id || module.name);
+    setActivePage('module-detail');
+  }
+
+  function openCodeReference(reference: CodeReference) {
+    if (!reference.path) return;
+    setActivePage('code');
+    void workbench.openFile(reference.path, reference.startLine);
+  }
+
   function openSymbol(symbol: SymbolInfo) {
     workbench.setCurrentSymbol(symbol);
     workbench.setSelection({ startLine: symbol.startLine, endLine: symbol.endLine });
@@ -67,7 +80,8 @@ export default function App() {
     onOpenSettings={() => setSettingsOpen(true)}
   >
     {activePage === 'overview' && <OverviewPage payload={workbench.payload} report={workbench.report} onNavigate={setActivePage} />}
-    {activePage === 'modules' && <ModuleMapPage payload={workbench.payload} report={workbench.report} onNavigate={setActivePage} />}
+    {activePage === 'modules' && <ModuleMapPage payload={workbench.payload} report={workbench.report} onOpenModule={openModule} />}
+    {activePage === 'module-detail' && <ModuleDetailPage report={workbench.report} activeModuleId={activeModuleId} onBack={() => setActivePage('modules')} onOpenFile={openCodeReference} />}
     {activePage === 'flows' && <FlowPage report={workbench.report} activeFlow={workbench.activeFlow} onSelectFlow={workbench.setActiveFlow} onOpenStep={openFlowStep} onNavigate={setActivePage} />}
     {activePage === 'data' && <DataModelPage payload={workbench.payload} report={workbench.report} />}
     {activePage === 'risks' && <RiskPage report={workbench.report} onNavigate={setActivePage} />}
