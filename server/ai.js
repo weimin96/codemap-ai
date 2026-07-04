@@ -229,6 +229,13 @@ function buildAnalyzePrompt(scan, chunks, contextPack) {
 
 请按以下四阶段提取事实，但最终只输出一个完整 JSON。
 
+输出边界：
+- modules 最多 8 个，只保留业务上最核心的模块。
+- flows 最多 6 条，只保留 P0/P1 的入口链路。
+- risks 最多 8 条，只保留需要优先人工验证的问题。
+- evidenceIndex 最多 20 条，readingPlan 最多 8 条。
+- Mermaid 只生成顶层 architecture 和核心 flow 的必要图，不要为低优先级对象补图。
+
 阶段 1：项目总览分析
 输入重点：目录树、README、配置、入口候选、Repo Map 摘要。
 输出重点：projectOverview、entrypoints、analysisQuality、architecture。

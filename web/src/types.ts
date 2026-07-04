@@ -105,6 +105,7 @@ export interface AiConfig {
   baseURL: string;
   model: string;
   apiKey: string;
+  timeoutMs?: number | string;
 }
 
 export interface RepoMap {

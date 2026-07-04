@@ -5,7 +5,7 @@ import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { scanProject } from './scanner.js';
 import { readTextFileSafe } from './fs-utils.js';
-import { analyzeWithAI, askWithAI } from './ai.js';
+import { analyzeWithAI, askWithAI, resolveAiTimeoutMs } from './ai.js';
 import { readConfig, writeConfig, redactConfig } from './config-store.js';
 import { buildContextPack } from './context-pack.js';
 import { normalizeReport, summarizeContextPack } from './report-normalizer.js';
@@ -53,8 +53,10 @@ export async function startServer({ projectDir, port, host, serveWeb = true, acc
         provider: body.provider || current.provider,
         baseURL: body.baseURL || current.baseURL,
         model: body.model || current.model,
-        apiKey: body.apiKey === '********' ? current.apiKey : typeof body.apiKey === 'string' ? body.apiKey : current.apiKey
+        apiKey: body.apiKey === '********' ? current.apiKey : typeof body.apiKey === 'string' ? body.apiKey : current.apiKey,
+        timeoutMs: body.timeoutMs === undefined || body.timeoutMs === null ? current.timeoutMs : body.timeoutMs
       };
+      nextConfig.timeoutMs = resolveAiTimeoutMs(nextConfig);
       const saved = await writeConfig(nextConfig);
       res.json(redactConfig(saved));
     } catch (error) { next(error); }

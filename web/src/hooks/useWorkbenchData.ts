@@ -13,7 +13,8 @@ const defaultConfig: AiConfig = {
   provider: 'openai-compatible',
   baseURL: 'https://api.openai.com/v1',
   model: 'gpt-4.1-mini',
-  apiKey: ''
+  apiKey: '',
+  timeoutMs: 60000
 };
 
 export function useWorkbenchData() {

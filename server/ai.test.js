@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { buildJsonRepairPrompt, parseAnalysisReport, parseAskAnswer, parseJsonResult, resolveAiTimeoutMs } from './ai.js';
 
 test('resolveAiTimeoutMs validates configured request timeout', () => {
+  assert.equal(resolveAiTimeoutMs(), 60_000);
   assert.equal(resolveAiTimeoutMs({ timeoutMs: 1000 }), 1000);
   assert.equal(resolveAiTimeoutMs({ timeoutMs: '2500' }), 2500);
   assert.throws(() => resolveAiTimeoutMs({ timeoutMs: 999 }), /Invalid AI timeout/);

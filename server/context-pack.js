@@ -2,8 +2,8 @@ import { readTextFileSafe } from './fs-utils.js';
 import { countTokens, estimateTokenCount } from './token-counter.js';
 import { scoreRepoFile } from './repo-map.js';
 
-const DEFAULT_MAX_CHARS = 120_000;
-const MAX_CHARS_PER_FILE = 28_000;
+const DEFAULT_MAX_CHARS = 60_000;
+const MAX_CHARS_PER_FILE = 12_000;
 const CONTEXT_MODES = new Set(['overview', 'module', 'flow', 'risk', 'question']);
 const SENSITIVE_PATH_PATTERN = /(^|\/)\.env($|[./])|(^|\/)(id_rsa|id_dsa|id_ecdsa|id_ed25519)$|\.(pem|p12|pfx|key)$/i;
 const SECRET_PATTERNS = [

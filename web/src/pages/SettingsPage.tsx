@@ -11,61 +11,71 @@ const providerDefaults: Record<string, AiConfig> = {
     provider: 'auto',
     baseURL: '',
     model: 'auto',
-    apiKey: ''
+    apiKey: '',
+    timeoutMs: 60000
   },
   'openai-compatible': {
     provider: 'openai-compatible',
     baseURL: 'https://api.openai.com/v1',
     model: 'gpt-4.1-mini',
-    apiKey: ''
+    apiKey: '',
+    timeoutMs: 60000
   },
   openai: {
     provider: 'openai',
     baseURL: 'https://api.openai.com/v1',
     model: 'gpt-4.1-mini',
-    apiKey: ''
+    apiKey: '',
+    timeoutMs: 60000
   },
   deepseek: {
     provider: 'deepseek',
     baseURL: 'https://api.deepseek.com',
     model: 'deepseek-v4-flash',
-    apiKey: ''
+    apiKey: '',
+    timeoutMs: 60000
   },
   kimi: {
     provider: 'kimi',
     baseURL: 'https://api.moonshot.cn/v1',
     model: 'kimi-k2.7-code',
-    apiKey: ''
+    apiKey: '',
+    timeoutMs: 60000
   },
   zhipu: {
     provider: 'zhipu',
     baseURL: 'https://open.bigmodel.cn/api/paas/v4',
     model: 'glm-5.1',
-    apiKey: ''
+    apiKey: '',
+    timeoutMs: 60000
   },
   siliconflow: {
     provider: 'siliconflow',
     baseURL: 'https://api.siliconflow.cn/v1',
     model: 'Qwen/Qwen3-Coder-480B-A35B-Instruct',
-    apiKey: ''
+    apiKey: '',
+    timeoutMs: 60000
   },
   openrouter: {
     provider: 'openrouter',
     baseURL: 'https://openrouter.ai/api/v1',
     model: 'anthropic/claude-sonnet-4.5',
-    apiKey: ''
+    apiKey: '',
+    timeoutMs: 60000
   },
   ollama: {
     provider: 'ollama',
     baseURL: 'http://127.0.0.1:11434/api',
     model: 'qwen2.5-coder:7b',
-    apiKey: ''
+    apiKey: '',
+    timeoutMs: 60000
   },
   custom: {
     provider: 'custom',
     baseURL: '',
     model: '',
-    apiKey: ''
+    apiKey: '',
+    timeoutMs: 60000
   }
 };
 
@@ -161,9 +171,14 @@ export function SettingsPage({
           <Input name="codemap-ai-api-key" value={config.apiKey} type="text" autoComplete="off" spellCheck={false} className="[-webkit-text-security:disc]" onChange={(event) => updateConfig({ ...config, apiKey: event.target.value })} />
         </Field>
         <div className="grid grid-cols-2 gap-4">
+          <Field label="请求超时">
+            <Input value={String(config.timeoutMs || 60000)} type="number" min="1000" max="600000" step="1000" onChange={(event) => updateConfig({ ...config, timeoutMs: Number(event.target.value) })} />
+          </Field>
           <Field label="Temperature">
             <Input defaultValue="0.2" type="number" min="0" max="2" step="0.1" />
           </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
           <Field label="Token 预算">
             <Input defaultValue="4096" type="number" min="1" />
           </Field>
@@ -185,12 +200,12 @@ export function SettingsPage({
 function providerConfig(config: AiConfig, provider: string): AiConfig {
   const defaults = providerDefaults[provider] || providerDefaults['openai-compatible'];
   if (provider === 'auto') {
-    return { provider, baseURL: '', model: '', apiKey: config.apiKey === '********' ? '' : config.apiKey };
+    return { provider, baseURL: '', model: '', apiKey: config.apiKey === '********' ? '' : config.apiKey, timeoutMs: config.timeoutMs || 60000 };
   }
   if (provider === 'custom') {
-    return { provider, baseURL: '', model: '', apiKey: config.apiKey === '********' ? '' : config.apiKey };
+    return { provider, baseURL: '', model: '', apiKey: config.apiKey === '********' ? '' : config.apiKey, timeoutMs: config.timeoutMs || 60000 };
   }
-  return { ...defaults, apiKey: config.apiKey === '********' ? '' : config.apiKey };
+  return { ...defaults, apiKey: config.apiKey === '********' ? '' : config.apiKey, timeoutMs: config.timeoutMs || defaults.timeoutMs };
 }
 
 function modelOptions(provider: string, currentModel: string) {
@@ -203,7 +218,13 @@ function validateConnectionConfig(config: AiConfig) {
   if (!config.baseURL.trim()) return '请先填写 Base URL。';
   if (!config.model.trim()) return '请先选择或填写 Model。';
   if (config.provider !== 'ollama' && !config.apiKey.trim() && config.apiKey !== '********') return '请先填写 API Key。';
+  if (!isValidTimeout(config.timeoutMs)) return '请求超时需在 1000 到 600000 毫秒之间。';
   return '';
+}
+
+function isValidTimeout(timeoutMs: AiConfig['timeoutMs']) {
+  const value = Number(timeoutMs);
+  return Number.isInteger(value) && value >= 1000 && value <= 600000;
 }
 
 function parseJsonResponse(text: string) {

@@ -90,3 +90,43 @@ test('buildContextPack excludes sensitive files from AI chunks', async () => {
   assert.match(pack.markdown, /Skipped Files: 2/);
   assert.match(pack.markdown, /## Skipped Files/);
 });
+
+test('buildContextPack keeps default analysis context bounded', async () => {
+  const largeSource = 'export const marker = true;\n' + 'const value = 1;\n'.repeat(1600);
+  const root = await createProject({
+    'src/orders/controller.ts': largeSource,
+    'src/orders/service.ts': largeSource,
+    'src/orders/repository.ts': largeSource,
+    'src/billing/service.ts': largeSource,
+    'src/auth/middleware.ts': largeSource
+  });
+  const filePaths = [
+    'src/orders/controller.ts',
+    'src/orders/service.ts',
+    'src/orders/repository.ts',
+    'src/billing/service.ts',
+    'src/auth/middleware.ts'
+  ];
+  const files = filePaths.map((filePath) => ({
+    path: filePath,
+    text: true,
+    size: largeSource.length,
+    role: 'service',
+    priority: 'P1',
+    language: 'typescript',
+    symbols: []
+  }));
+  const projectScan = {
+    root,
+    totalFiles: files.length,
+    totalSymbols: 0,
+    repoMap: {},
+    files
+  };
+
+  const pack = await buildContextPack({ root, scan: projectScan });
+
+  assert.equal(pack.budget.maxChars, 60000);
+  assert.ok(pack.budget.usedChars <= 60000);
+  assert.ok(pack.chunks.every((chunk) => chunk.content.length <= 12000));
+});
