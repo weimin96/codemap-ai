@@ -21,3 +21,5 @@
 - 阶段 6 验证通过：npm run typecheck。
 - 阶段 7 完成：Context Pack 支持 overview/module/flow/risk/question mode；/api/context-pack 可按 mode 和 target 生成上下文；记录跳过文件。
 - 阶段 7 验证通过：node --check server/context-pack.js server/report-normalizer.js server/server.js；npm run typecheck。
+- 阶段 8 完成：Ask 返回结构化答案；AskPanel 按结论、证据、风险、下一步动作和相关文件展示；字符串错误信息保持兼容。
+- 阶段 8 验证通过：node --check server/ai.js server/server.js；npm run typecheck。

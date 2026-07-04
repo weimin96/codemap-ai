@@ -70,7 +70,7 @@ export async function askWithAI({ question, context, config }) {
     prompt,
     temperature: 0.2
   });
-  return result.text;
+  return parseAskAnswer(result.text);
 }
 
 const SYSTEM_PROMPT = `你是“项目快速接管工作台”的代码理解引擎。用户刚接手陌生项目，需要先通过你建立第一版项目地图，然后本人快速验证。
@@ -110,13 +110,22 @@ JSON 结构：
 
 const ASK_SYSTEM_PROMPT = `你是项目快速接管助手。回答必须围绕当前文件、选中代码、当前链路或风险点。不要泛泛解释。
 
-回答结构：
-1. 结论
-2. 证据：引用具体文件/函数/代码片段
-3. 可能风险或误解
-4. 下一步验证动作
+要求：
+- 只基于当前上下文回答。
+- 如果证据不足，conclusion 必须直接说明“不确定”。
+- evidence 和 relatedFiles 必须引用具体文件路径；不知道行号可省略。
+- 输出必须是严格 JSON，不要 Markdown 代码围栏，不要输出 JSON 以外的文字。
 
-如果证据不足，直接说“不确定”，并说明需要打开或搜索哪些文件。`;
+JSON 结构：
+{
+  "conclusion": "",
+  "evidence": [{"path":"", "symbol":"", "startLine":1, "endLine":1, "reason":"", "confidence":"fact|guess|unknown"}],
+  "risks": [],
+  "nextActions": [],
+  "relatedFiles": [{"path":"", "symbol":"", "startLine":1, "endLine":1, "reason":"", "confidence":"fact|guess|unknown"}],
+  "confidence": "fact|guess|unknown",
+  "markdown": ""
+}`;
 
 function buildAnalyzePrompt(scan, chunks, contextPack) {
   const fileList = scan.keyFiles.slice(0, 80).map((f) => {
@@ -180,6 +189,52 @@ ${question}
 ${JSON.stringify(context, null, 2)}
 
 请基于上下文回答。`;
+}
+
+export function parseAskAnswer(text) {
+  try {
+    return normalizeAskAnswer(parseJsonResult(text));
+  } catch {
+    return normalizeAskAnswer({ markdown: text, conclusion: text.trim() ? text.trim().slice(0, 240) : '不确定' });
+  }
+}
+
+function normalizeAskAnswer(answer) {
+  return {
+    conclusion: answer.conclusion || '不确定',
+    evidence: normalizeCodeReferences(answer.evidence),
+    risks: asStringArray(answer.risks),
+    nextActions: asStringArray(answer.nextActions),
+    relatedFiles: normalizeCodeReferences(answer.relatedFiles),
+    confidence: normalizeConfidence(answer.confidence),
+    markdown: answer.markdown || ''
+  };
+}
+
+function normalizeCodeReferences(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    if (typeof item === 'string') return { path: item, reason: '相关文件', confidence: 'guess' };
+    return {
+      path: item.path || '',
+      symbol: item.symbol || '',
+      startLine: item.startLine,
+      endLine: item.endLine,
+      reason: item.reason || '相关文件',
+      confidence: normalizeConfidence(item.confidence)
+    };
+  }).filter((item) => item.path);
+}
+
+function asStringArray(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
+  if (typeof value === 'string' && value.trim()) return [value.trim()];
+  return [];
+}
+
+function normalizeConfidence(value) {
+  if (value === 'fact' || value === 'guess' || value === 'unknown') return value;
+  return 'unknown';
 }
 
 export function parseJsonResult(text) {

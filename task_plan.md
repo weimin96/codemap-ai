@@ -25,7 +25,7 @@
 | 5 | complete | 新增 FlowDetailPage，把核心链路升级成业务剧本页 | npm run typecheck |
 | 6 | complete | RiskPage 增加风险详情面板 | npm run typecheck |
 | 7 | complete | Context Pack 增加 overview/module/flow/risk/question mode | node --check server/context-pack.js；npm run typecheck |
-| 8 | pending | Ask 返回结构化答案并兼容现有文本展示 | npm run typecheck；node --check server/ai.js server/server.js |
+| 8 | complete | Ask 返回结构化答案并兼容现有文本展示 | npm run typecheck；node --check server/ai.js server/server.js |
 
 ## 风险点
 - 历史报告可能缺少新增字段，normalizer 必须补齐默认结构。

@@ -214,6 +214,16 @@ export interface EvidenceIndex {
   files: CodeReference[];
 }
 
+export interface AskAnswer {
+  conclusion: string;
+  evidence: CodeReference[];
+  risks: string[];
+  nextActions: string[];
+  relatedFiles: CodeReference[];
+  confidence: Confidence;
+  markdown: string;
+}
+
 export interface ProjectPayload {
   projectDir: string;
   scan: {

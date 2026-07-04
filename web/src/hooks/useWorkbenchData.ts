@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AiConfig, CoreFlow, FilePayload, ProjectPayload, Report, ScanFile, SymbolInfo } from '@/types';
+import type { AiConfig, AskAnswer, CoreFlow, FilePayload, ProjectPayload, Report, ScanFile, SymbolInfo } from '@/types';
 
 const defaultConfig: AiConfig = {
   provider: 'openai-compatible',
@@ -18,7 +18,7 @@ export function useWorkbenchData() {
   const [activeRisk, setActiveRisk] = useState<Report['risks'][number] | null>(null);
   const [config, setConfig] = useState(defaultConfig);
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
+  const [answer, setAnswer] = useState<AskAnswer | string>('');
   const [loading, setLoading] = useState<string>('');
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<ScanFile[]>([]);
