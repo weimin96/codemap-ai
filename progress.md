@@ -19,3 +19,5 @@
 - 阶段 5 验证通过：npm run typecheck。
 - 阶段 6 完成：RiskPage 增加可选择风险表和详情面板；详情展示影响、验证步骤、建议测试和代码证据；可跳转相关代码。
 - 阶段 6 验证通过：npm run typecheck。
+- 阶段 7 完成：Context Pack 支持 overview/module/flow/risk/question mode；/api/context-pack 可按 mode 和 target 生成上下文；记录跳过文件。
+- 阶段 7 验证通过：node --check server/context-pack.js server/report-normalizer.js server/server.js；npm run typecheck。

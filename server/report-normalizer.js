@@ -27,7 +27,10 @@ export function normalizeReport(report, contextPack = null, scan = null) {
 export function summarizeContextPack(contextPack) {
   return {
     generatedAt: contextPack.generatedAt,
+    mode: contextPack.mode,
+    target: contextPack.target,
     budget: contextPack.budget,
+    skippedFiles: Array.isArray(contextPack.skippedFiles) ? contextPack.skippedFiles : [],
     files: contextPack.files.map((file) => ({
       path: file.path,
       role: file.role,
@@ -145,7 +148,7 @@ function normalizeAnalysisQuality(quality, contextSummary, scan) {
     scannedFiles: Number(quality?.scannedFiles ?? scan?.totalFiles ?? scan?.files?.length ?? 0),
     indexedSymbols: Number(quality?.indexedSymbols ?? scan?.totalSymbols ?? scan?.repoMap?.totals?.symbols ?? 0),
     contextFiles: Array.isArray(quality?.contextFiles) ? quality.contextFiles : contextSummary?.files || [],
-    skippedFiles: Array.isArray(quality?.skippedFiles) ? quality.skippedFiles : [],
+    skippedFiles: Array.isArray(quality?.skippedFiles) ? quality.skippedFiles : contextSummary?.skippedFiles || [],
     parseWarnings: Array.isArray(quality?.parseWarnings) ? quality.parseWarnings : [],
     confidence: quality?.confidence || 'guess',
     tokenBudget: quality?.tokenBudget || estimateTokenBudget(budget)

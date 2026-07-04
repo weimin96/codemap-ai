@@ -114,7 +114,11 @@ export async function startServer({ projectDir, port, host }) {
   app.get('/api/context-pack', async (req, res, next) => {
     try {
       if (!cache.scan) cache.scan = await scanProject(projectDir);
-      if (!cache.contextPack) cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan });
+      const mode = String(req.query.mode || 'overview');
+      const target = buildContextTarget(req.query);
+      if (!cache.contextPack || mode !== 'overview' || Object.keys(target).length) {
+        cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan, mode, target });
+      }
       if (req.query.format === 'markdown') {
         res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
         res.setHeader('Content-Disposition', 'attachment; filename="project-context.md"');
@@ -257,6 +261,15 @@ function stripCompatSuffix(value) {
 
 function truncateBody(value) {
   return value.length > 512 ? `${value.slice(0, 512)}…` : value;
+}
+
+function buildContextTarget(query) {
+  const target = {};
+  for (const key of ['moduleId', 'moduleName', 'flowId', 'riskId', 'path', 'symbol']) {
+    const value = query[key];
+    if (typeof value === 'string' && value.trim()) target[key] = value.trim();
+  }
+  return target;
 }
 
 function extractModelIds(data) {
