@@ -1,6 +1,14 @@
 export type Confidence = 'fact' | 'guess' | 'unknown';
 export type Priority = 'P0' | 'P1' | 'P2' | 'P3';
 export type VerificationStatus = 'ai_guess' | 'verified' | 'rejected' | 'pending' | 'stale';
+export type NoticeType = 'error' | 'warning' | 'success' | 'info';
+
+export interface Notice {
+  type: NoticeType;
+  title: string;
+  message: string;
+  action?: { label: string; onClick: () => void };
+}
 
 export interface VerificationFields {
   verificationStatus: VerificationStatus;

@@ -16,7 +16,7 @@ export function OverviewPage({ payload, report, codeGraph, onNavigate }: { paylo
   const nextSteps = buildNextSteps(report, highRisks);
   return <div className="space-y-4">
     <Card className="overflow-hidden border-blue-100 bg-gradient-to-br from-white to-blue-50/60">
-      <CardContent className="grid grid-cols-[1.35fr_1fr] gap-6 p-6">
+      <CardContent className="grid gap-6 p-4 md:p-6 xl:grid-cols-[1.35fr_1fr]">
         <div className="min-w-0">
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <Badge variant="secondary">{overview?.type || '待识别项目类型'}</Badge>
@@ -55,7 +55,7 @@ export function OverviewPage({ payload, report, codeGraph, onNavigate }: { paylo
     <Card>
       <CardContent className="p-5">
         <SectionTitle title="下一步建议" description="按接管顺序继续，不需要先读完整报告。" />
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid gap-3 md:grid-cols-3">
           {nextSteps.map((step) => <ActionItem key={step.title} onClick={() => onNavigate(step.page)} className="rounded-xl bg-white p-4 text-sm">
             <div className="flex items-start gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-700">{step.icon}</div>
@@ -67,7 +67,7 @@ export function OverviewPage({ payload, report, codeGraph, onNavigate }: { paylo
             </div>
           </ActionItem>)}
         </div>
-        <div className="mt-4 grid grid-cols-4 gap-2 text-sm">
+        <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4">
           <EvidenceShortcut icon={<Boxes size={15} />} label="模块证据" value={report?.modules?.length || 0} onClick={() => onNavigate('modules')} />
           <EvidenceShortcut icon={<Route size={15} />} label="链路证据" value={report?.flows?.length || 0} onClick={() => onNavigate('flows')} />
           <EvidenceShortcut icon={<ShieldAlert size={15} />} label="风险证据" value={report?.risks?.length || 0} onClick={() => onNavigate('risks')} />
@@ -76,14 +76,14 @@ export function OverviewPage({ payload, report, codeGraph, onNavigate }: { paylo
       </CardContent>
     </Card>
 
-    <div className="grid grid-cols-4 gap-4">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard icon={<PlayCircle size={22} />} label="启动方式" value={overview?.startup || '待识别'} hint="项目入口与本地运行方式" tone="blue" />
       <StatCard icon={<Boxes size={22} />} label="核心模块" value={report?.modules?.length || 0} hint="已识别模块数量" tone="green" />
       <StatCard icon={<Cloud size={22} />} label="依赖服务" value={payload?.scan?.summary?.stack?.slice(0, 3).join(' / ') || '待识别'} hint="技术栈与外部依赖线索" tone="purple" />
       <StatCard icon={<Clock3 size={22} />} label="风险 Top" value={highRisks} hint="高风险数量" tone={highRisks ? 'red' : 'slate'} />
     </div>
 
-    <div className="grid grid-cols-[1.35fr_1fr] gap-4">
+    <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">
       <Card>
         <CardContent className="p-5">
           <SectionTitle title="系统架构图" description="系统整体分层与主要依赖关系。" action={<LinkButton onClick={() => onNavigate('flows')}>查看核心链路</LinkButton>} />
@@ -93,7 +93,7 @@ export function OverviewPage({ payload, report, codeGraph, onNavigate }: { paylo
       <Card>
         <CardContent className="p-5">
           <SectionTitle title="核心模块" description="按优先级整理的主要模块。" action={<LinkButton onClick={() => onNavigate('modules')}>查看模块地图</LinkButton>} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 md:grid-cols-2">
             {report?.modules?.slice(0, 6).map((module) => <ActionItem key={module.name} onClick={() => onNavigate('modules')} className="rounded-xl bg-white p-4 text-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="font-semibold text-slate-950">{module.name}</div>
@@ -107,8 +107,8 @@ export function OverviewPage({ payload, report, codeGraph, onNavigate }: { paylo
       </Card>
     </div>
 
-    <div className="grid grid-cols-4 gap-4">
-      <Card className="col-span-2">
+    <div className="grid gap-4 xl:grid-cols-4">
+      <Card className="xl:col-span-2">
         <CardContent className="p-5">
           <SectionTitle title="核心链路" action={<LinkButton onClick={() => onNavigate('flows')}>查看更多链路</LinkButton>} />
           <div className="space-y-2">
@@ -147,7 +147,7 @@ export function OverviewPage({ payload, report, codeGraph, onNavigate }: { paylo
     </div>
 
     <Card>
-      <CardContent className="flex items-center justify-between p-5">
+      <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="font-semibold text-slate-950">可信度说明</div>
           <div className="mt-1 text-sm text-muted-foreground">所有 AI 结论都应区分事实、推测和待验证状态。</div>

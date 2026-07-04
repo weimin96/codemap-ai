@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AiConfig, AskAnswer, AskThreadEntry, CodeGraph, CoreFlow, FilePayload, ProjectPayload, Report, ScanFile, SymbolInfo, VerificationStatus } from '@/types';
+import type { AiConfig, AskAnswer, AskThreadEntry, CodeGraph, CoreFlow, FilePayload, Notice, ProjectPayload, Report, ScanFile, SymbolInfo, VerificationStatus } from '@/types';
 
 const ASK_THREADS_STORAGE_KEY = 'codemap-ai.askThreads.v1';
 
@@ -33,6 +33,7 @@ export function useWorkbenchData() {
   const [codeGraph, setCodeGraph] = useState<CodeGraph | null>(null);
   const [askThreads, setAskThreads] = useState<AskThreadEntry[]>(() => readAskThreads());
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const analyzeAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -52,7 +53,7 @@ export function useWorkbenchData() {
       const firstPath = projectData.scan?.keyFiles?.[0]?.path;
       if (firstPath) await openFile(firstPath);
     } catch (error) {
-      setAnswer(`初始化失败：${formatError(error)}`);
+      pushNotice('error', '初始化失败', formatError(error));
     } finally {
       setLoading('');
     }
@@ -67,7 +68,7 @@ export function useWorkbenchData() {
       setCurrentSymbol(null);
       setSelection(line ? { startLine: line, endLine: line } : null);
     } catch (error) {
-      setAnswer(`无法打开文件：${formatError(error)}`);
+      pushNotice('error', '无法打开文件', formatError(error));
     } finally {
       setLoading('');
     }
@@ -79,7 +80,7 @@ export function useWorkbenchData() {
       const saved = await persistConfig();
       setConfig({ ...config, ...saved });
     } catch (error) {
-      setAnswer(`保存配置失败：${formatError(error)}`);
+      pushNotice('error', '保存配置失败', formatError(error));
     } finally {
       setLoading('');
     }
@@ -105,8 +106,10 @@ export function useWorkbenchData() {
         signal: controller.signal
       }, setAnalysisProgress);
       setReport(data.report);
+      pushNotice('success', '分析完成', '已生成新的项目接管报告。');
     } catch (error) {
-      setAnswer(controller.signal.aborted ? '分析已取消。' : `分析失败：${formatError(error)}`);
+      if (controller.signal.aborted) pushNotice('info', '分析已取消', '本次 AI 分析请求已停止。');
+      else pushNotice('error', '分析失败', formatError(error));
     } finally {
       if (analyzeAbortRef.current === controller) analyzeAbortRef.current = null;
       setAnalysisProgress(null);
@@ -133,7 +136,7 @@ export function useWorkbenchData() {
       setPayload(data);
       setReport(data.report);
     } catch (error) {
-      setAnswer(`重新扫描失败：${formatError(error)}`);
+      pushNotice('error', '重新扫描失败', formatError(error));
     } finally {
       setLoading('');
     }
@@ -164,7 +167,7 @@ export function useWorkbenchData() {
       if (refreshedFlow) setActiveFlow(refreshedFlow);
       if (refreshedRisk) setActiveRisk(refreshedRisk);
     } catch (error) {
-      setAnswer(`确认状态更新失败：${formatError(error)}`);
+      pushNotice('error', '确认状态更新失败', formatError(error));
     } finally {
       setLoading('');
     }
@@ -176,7 +179,7 @@ export function useWorkbenchData() {
       const data = await requestJson<{ graph: CodeGraph }>('/api/code-graph');
       setCodeGraph(data.graph);
     } catch (error) {
-      setAnswer(`代码图谱加载失败：${formatError(error)}`);
+      pushNotice('error', '代码图谱加载失败', formatError(error));
     } finally {
       setLoading('');
     }
@@ -215,10 +218,14 @@ export function useWorkbenchData() {
       });
       setAskThreads((current) => persistAskThreads([entry, ...current].slice(0, 200)));
     } catch (error) {
-      setAnswer(`追问失败：${formatError(error)}`);
+      pushNotice('error', '追问失败', formatError(error));
     } finally {
       setLoading('');
     }
+  }
+
+  function pushNotice(type: Notice['type'], title: string, message: string, action?: Notice['action']) {
+    setNotice({ type, title, message, action });
   }
 
   const files = payload?.scan?.files?.filter((file) => file.text).slice(0, 500) || [];
@@ -251,6 +258,7 @@ export function useWorkbenchData() {
     codeGraph,
     askThreads,
     analysisProgress,
+    notice,
     files,
     currentFileSymbols,
     openFile,
@@ -261,7 +269,8 @@ export function useWorkbenchData() {
     runSearch,
     updateVerification,
     loadCodeGraph,
-    ask
+    ask,
+    clearNotice: () => setNotice(null)
   };
 }
 

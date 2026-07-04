@@ -45,7 +45,7 @@ export function CodeWorkspace({
     <TopMap report={report} activeFlow={activeFlow} onOpenStep={onOpenStep} />
     <FileHeader currentFile={currentFile} currentSymbol={currentSymbol} selection={selection} />
     <CodeImpactPanel report={report} currentFile={currentFile} currentSymbol={currentSymbol} />
-    <div className="grid grid-cols-[260px_1fr] min-h-0 flex-1">
+    <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[260px_1fr]">
       <FileNavigator
         search={search}
         results={results}
@@ -70,7 +70,7 @@ export function CodeWorkspace({
 }
 
 function TopMap({ report, activeFlow, onOpenStep }: { report: Report | null; activeFlow: CoreFlow | null; onOpenStep: (step: FlowStep) => void }) {
-  return <div className="grid grid-cols-2 gap-3 p-3 border-b bg-card/30">
+  return <div className="grid gap-3 border-b bg-card/30 p-3 xl:grid-cols-2">
     <Card className="min-h-52">
       <CardHeader><CardTitle className="flex items-center gap-2 text-sm"><Map size={16} />{activeFlow ? '链路图' : '项目地图'}</CardTitle></CardHeader>
       <CardContent>{(activeFlow?.mermaid || report?.mermaid) && <MermaidPanel chart={activeFlow?.mermaid || report?.mermaid} />}</CardContent>
@@ -126,7 +126,7 @@ function FileNavigator({ search, results, files, currentFileSymbols, onSearch, o
   onOpenFile: (path: string) => void;
   onOpenSymbol: (symbol: SymbolInfo) => void;
 }) {
-  return <div className="border-r overflow-y-auto p-2 space-y-2">
+  return <div className="max-h-64 space-y-2 overflow-y-auto border-b p-2 lg:max-h-none lg:border-b-0 lg:border-r">
     <div className="flex items-center gap-2">
       <Search size={14} />
       <Input className="h-8" value={search} onChange={(event) => onSearch(event.target.value)} placeholder="搜索文件路径" />

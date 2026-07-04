@@ -113,12 +113,17 @@ export default function App() {
   return <AppShell
     activePage={activePage}
     payload={workbench.payload}
+    report={workbench.report}
+    codeGraph={workbench.codeGraph}
+    config={workbench.config}
+    notice={workbench.notice}
     loading={workbench.loading}
     hasAiAnalysis={workbench.report?.generatedBy === 'ai'}
     onNavigate={setActivePage}
     onAnalyze={workbench.analyze}
     onCancelAnalyze={workbench.cancelAnalyze}
     analysisProgress={workbench.analysisProgress}
+    onClearNotice={workbench.clearNotice}
     onExportReport={exportContextPack}
     onExportDocs={() => { void exportOnboardingDocs(); }}
     onOpenSettings={() => setSettingsOpen(true)}
@@ -133,13 +138,13 @@ export default function App() {
       {activePage === 'risks' && <RiskPage report={workbench.report} activeRisk={workbench.activeRisk} loading={workbench.loading} onSelectRisk={workbench.setActiveRisk} onOpenRiskCode={openRiskCode} onUpdateVerification={changeVerification} />}
       {activePage === 'graph' && <CodeGraphPage graph={workbench.codeGraph} report={workbench.report} config={workbench.config} currentFile={workbench.currentFile} currentSymbol={workbench.currentSymbol} activeFlow={workbench.activeFlow} activeRisk={workbench.activeRisk} loading={workbench.loading} onLoadGraph={workbench.loadCodeGraph} onOpenFile={openGraphFile} />}
       {activePage === 'history' && <HistoryPage report={workbench.report} askThreads={workbench.askThreads} />}
-      {activePage === 'code' && <div className="flex h-[calc(100vh-104px)] flex-col gap-3">
+      {activePage === 'code' && <div className="flex min-h-[720px] flex-col gap-3 xl:h-[calc(100vh-260px)]">
         <div className="flex justify-end">
           <Button type="button" size="sm" variant="outline" onClick={() => setAskPanelOpen((open) => !open)}>
             {askPanelOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}{askPanelOpen ? '收起追问' : '展开追问'}
           </Button>
         </div>
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_var(--ask-panel-width)] gap-4 transition-[grid-template-columns] duration-200" style={codeLayoutStyle}>
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 transition-[grid-template-columns] duration-200 xl:grid-cols-[minmax(0,1fr)_var(--ask-panel-width)]" style={codeLayoutStyle}>
         <CodeWorkspace
           report={workbench.report}
           activeFlow={workbench.activeFlow}
@@ -156,7 +161,7 @@ export default function App() {
           onOpenSymbol={openSymbol}
           onEditorMount={editorMount}
         />
-        <div className="min-w-0 overflow-hidden">
+        <div className={askPanelOpen ? 'min-h-[420px] min-w-0 overflow-hidden xl:min-h-0' : 'hidden min-w-0 overflow-hidden xl:block'}>
           {askPanelOpen && <AskPanel
           report={workbench.report}
           currentFile={workbench.currentFile}
