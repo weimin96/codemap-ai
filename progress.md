@@ -33,3 +33,5 @@
 - 阶段 12 验证通过：node --check server/config-store.js server/server.js；npm run typecheck。
 - 阶段 13 完成：exists 只把 ENOENT 判定为不存在；ignore 文件读取只在 ENOENT 时忽略，其他 IO 错误中止。
 - 阶段 13 验证通过：node --check server/fs-utils.js server/ignore-rules.js server/config-store.js server/report-store.js；npm run typecheck --silent。
+- 阶段 14 完成：前端 API 请求统一使用 requestJson 校验 HTTP 状态和 error 字段；配置加载失败进入明确错误展示；README 同步当前能力和明确失败策略。
+- 阶段 14 验证通过：npm run typecheck --silent。

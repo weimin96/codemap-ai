@@ -24,34 +24,38 @@ export function useWorkbenchData() {
   const [results, setResults] = useState<ScanFile[]>([]);
 
   useEffect(() => {
-    loadProject();
-    fetch('/api/config').then((response) => response.json()).then((nextConfig) => setConfig({ ...defaultConfig, ...nextConfig })).catch(() => undefined);
+    void initialize();
   }, []);
 
-  async function loadProject() {
+  async function initialize() {
     setLoading('project');
     try {
-      const data = await fetch('/api/project').then((response) => response.json());
-      setPayload(data);
-      setReport(data.report);
-      const firstPath = data.scan?.keyFiles?.[0]?.path;
-      if (firstPath) void openFile(firstPath);
+      const [projectData, nextConfig] = await Promise.all([
+        requestJson<ProjectPayload>('/api/project'),
+        requestJson<AiConfig>('/api/config')
+      ]);
+      setPayload(projectData);
+      setReport(projectData.report);
+      setConfig({ ...defaultConfig, ...nextConfig });
+      const firstPath = projectData.scan?.keyFiles?.[0]?.path;
+      if (firstPath) await openFile(firstPath);
+    } catch (error) {
+      setAnswer(`初始化失败：${formatError(error)}`);
     } finally {
       setLoading('');
     }
   }
 
   async function openFile(path: string, line?: number) {
-    if (!path || path.includes('待')) return;
+    if (!path || path.includes('待')) throw new Error(`无效文件路径：${path}`);
     setLoading('file');
     try {
-      const file = await fetch(`/api/file?path=${encodeURIComponent(path)}`).then((response) => response.json());
-      if (file.error) throw new Error(file.error);
+      const file = await requestJson<FilePayload>(`/api/file?path=${encodeURIComponent(path)}`);
       setCurrentFile(file);
       setCurrentSymbol(null);
       setSelection(line ? { startLine: line, endLine: line } : null);
     } catch (error) {
-      setAnswer(`无法打开文件：${error instanceof Error ? error.message : String(error)}`);
+      setAnswer(`无法打开文件：${formatError(error)}`);
     } finally {
       setLoading('');
     }
@@ -62,6 +66,8 @@ export function useWorkbenchData() {
     try {
       const saved = await persistConfig();
       setConfig({ ...config, ...saved });
+    } catch (error) {
+      setAnswer(`保存配置失败：${formatError(error)}`);
     } finally {
       setLoading('');
     }
@@ -77,34 +83,35 @@ export function useWorkbenchData() {
     try {
       const saved = await persistConfig();
       setConfig({ ...config, ...saved });
-      const data = await fetch('/api/analyze', {
+      const data = await requestJson<{ report: Report }>('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ config })
-      }).then((response) => response.json());
-      if (data.error) throw new Error(data.error);
+      });
       setReport(data.report);
     } catch (error) {
-      setAnswer(`分析失败：${error instanceof Error ? error.message : String(error)}`);
+      setAnswer(`分析失败：${formatError(error)}`);
     } finally {
       setLoading('');
     }
   }
 
   async function persistConfig() {
-    return await fetch('/api/config', {
+    return await requestJson<AiConfig>('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config)
-    }).then((response) => response.json());
+    });
   }
 
   async function rescan() {
     setLoading('rescan');
     try {
-      const data = await fetch('/api/rescan', { method: 'POST' }).then((response) => response.json());
+      const data = await requestJson<ProjectPayload>('/api/rescan', { method: 'POST' });
       setPayload(data);
       setReport(data.report);
+    } catch (error) {
+      setAnswer(`重新扫描失败：${formatError(error)}`);
     } finally {
       setLoading('');
     }
@@ -116,8 +123,8 @@ export function useWorkbenchData() {
       setResults([]);
       return;
     }
-    const data = await fetch(`/api/search?q=${encodeURIComponent(value)}`).then((response) => response.json());
-    setResults(data.results || []);
+    const data = await requestJson<{ results: ScanFile[] }>(`/api/search?q=${encodeURIComponent(value)}`);
+    setResults(data.results);
   }
 
   async function ask(nextQuestion?: string) {
@@ -135,15 +142,14 @@ export function useWorkbenchData() {
         activeFlow,
         activeRisk
       };
-      const data = await fetch('/api/ask', {
+      const data = await requestJson<{ answer: AskAnswer }>('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: finalQuestion, context, config })
-      }).then((response) => response.json());
-      if (data.error) throw new Error(data.error);
+      });
       setAnswer(data.answer);
     } catch (error) {
-      setAnswer(`追问失败：${error instanceof Error ? error.message : String(error)}`);
+      setAnswer(`追问失败：${formatError(error)}`);
     } finally {
       setLoading('');
     }
@@ -185,4 +191,17 @@ export function useWorkbenchData() {
     runSearch,
     ask
   };
+}
+
+async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  const data = await response.json();
+  if (!response.ok || data?.error) {
+    throw new Error(data?.error || `请求失败：${response.status} ${response.statusText}`);
+  }
+  return data as T;
+}
+
+function formatError(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }
