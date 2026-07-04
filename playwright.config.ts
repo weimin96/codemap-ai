@@ -20,7 +20,8 @@ export default defineConfig({
     command: `node bin/pfo.js . --port ${port} --no-open`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000
+    timeout: 60_000,
+    env: { ...process.env, PFO_DISABLE_SQLITE: '1' }
   },
   projects: [
     {

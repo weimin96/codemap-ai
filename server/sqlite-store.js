@@ -96,6 +96,7 @@ async function readRecord(action, fallback) {
 }
 
 async function openDatabaseIfAvailable() {
+  if (process.env.PFO_DISABLE_SQLITE === '1') return null;
   let sqlite;
   try {
     sqlite = await import('node:sqlite');

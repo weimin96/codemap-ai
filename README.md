@@ -34,6 +34,7 @@
 - UI: Tailwind CSS + shadcn/ui 风格组件
 - Icons: lucide-react
 - Diagram: Mermaid
+- Code graph visualization: Cytoscape
 - Code Preview: Monaco Editor via `@monaco-editor/react`
 - AI: Vercel AI SDK (`ai`)
   - OpenAI: `@ai-sdk/openai`
@@ -152,7 +153,7 @@ API Key: 留空
 - 构建 Repo Map，并按优先级、路径角色、符号数量和文件大小排序。
 - 构建 JS/TS Code Graph，输出 nodes、edges、warnings，边类型包含 `contains`、`defines`、`imports`、`calls`。
 - Code Graph 使用 TypeScript AST 提取 JS/TS imports、exports、require、动态 import 和 CallExpression，再进行本地符号匹配。
-- 图谱页支持 Inspector：概览、解释、为什么有关、告警、代码。
+- 图谱页支持 Cytoscape 交互画布和 Inspector：概览、解释、为什么有关、告警、代码。
 - Inspector 解释 tab 使用 600ms 延迟触发、切换取消和前端 session cache。
 - Why Connected 通过最短路径解释两个节点为什么有关。
 - 构建 Context Pack，按字符预算选择 AI 分析上下文，并支持导出 `project-context.md`。
@@ -231,7 +232,7 @@ API Key 优先可通过环境变量提供。通过页面保存时，配置写入
 - Context Pack mode 是启发式加权，不是调用图或本地 RAG。
 - 模块、链路、风险和数据实体的人工确认状态已支持 UI 更新并写回本地报告。
 - SQLite 镜像持久化依赖运行时支持 `node:sqlite`；Node 20 环境会自动跳过，不阻断主流程。
-- `/api/onboarding-docs` 暂未提供前端批量下载按钮。
+- `/api/onboarding-docs` 已提供前端合并 Markdown 下载；暂未提供 zip 批量下载。
 - `test:e2e` 已接入 Playwright，包含工作台 smoke 用例；CI 会安装 Chromium 后执行。
 - `lint` 已接入 ESLint；当前关闭了 `preserve-caught-error` 和 `no-useless-escape`，避免把既有错误包装和正则写法变成大范围重构。
 - release workflow 已提供 npm provenance 发布入口，但真实发布依赖仓库配置 `NPM_TOKEN`。

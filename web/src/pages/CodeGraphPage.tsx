@@ -84,6 +84,8 @@ export function CodeGraphPage({ graph, loading, onLoadGraph, onOpenFile }: {
       <StatCard icon={<AlertTriangle size={18} />} label="解析告警" value={graph.totals.warnings} hint="未解析导入或调用" tone={graph.totals.warnings ? 'amber' : 'slate'} />
     </div>
 
+    <GraphCanvas nodes={nodes} edges={edges} selectedId={selectedNode?.id || ''} onSelect={setSelectedId} />
+
     <div className="grid gap-4 lg:grid-cols-[420px,1fr]">
       <Card>
         <CardHeader className="space-y-3">
@@ -122,6 +124,73 @@ export function CodeGraphPage({ graph, loading, onLoadGraph, onOpenFile }: {
       </Card>
     </div>
   </div>;
+}
+
+function GraphCanvas({ nodes, edges, selectedId, onSelect }: { nodes: CodeGraphNode[]; edges: CodeGraphEdge[]; selectedId: string; onSelect: (id: string) => void }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const cyRef = useRef<any>(null);
+  const elements = useMemo(() => {
+    const graphNodes = nodes.filter((node) => node.type !== 'directory').slice(0, 140);
+    const nodeIds = new Set(graphNodes.map((node) => node.id));
+    const graphEdges = edges.filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target)).slice(0, 260);
+    return [
+      ...graphNodes.map((node) => ({ data: { id: node.id, label: node.name, type: node.type } })),
+      ...graphEdges.map((edge, index) => ({ data: { id: `edge-${index}`, source: edge.source, target: edge.target, label: edge.type, type: edge.type } }))
+    ];
+  }, [nodes, edges]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void import('cytoscape').then((module) => {
+      if (cancelled || !containerRef.current) return;
+      const cy = module.default({
+        container: containerRef.current,
+        elements,
+        minZoom: 0.25,
+        maxZoom: 2.5,
+        wheelSensitivity: 0.18,
+        layout: { name: 'cose', animate: false, padding: 24 },
+        style: cytoscapeStyle() as any
+      });
+      cy.on('tap', 'node', (event: any) => onSelect(event.target.id()));
+      cyRef.current = cy;
+      if (selectedId) cy.getElementById(selectedId).addClass('selected');
+    });
+    return () => {
+      cancelled = true;
+      cyRef.current?.destroy();
+      cyRef.current = null;
+    };
+  }, [elements, onSelect, selectedId]);
+
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    cy.nodes().removeClass('selected');
+    if (!selectedId) return;
+    const node = cy.getElementById(selectedId);
+    node.addClass('selected');
+    if (node.length) cy.animate({ center: { eles: node }, zoom: Math.max(cy.zoom(), 0.85) }, { duration: 220 });
+  }, [selectedId]);
+
+  return <Card>
+    <CardHeader><CardTitle className="text-base">交互图谱</CardTitle></CardHeader>
+    <CardContent>
+      <div ref={containerRef} className="h-[420px] rounded-xl border bg-slate-50" />
+      <div className="mt-3 text-xs text-slate-500">显示前 140 个非目录节点和 260 条关系；支持缩放、拖拽、节点点击与 Inspector 联动。</div>
+    </CardContent>
+  </Card>;
+}
+
+function cytoscapeStyle() {
+  return [
+    { selector: 'node', style: { label: 'data(label)', 'font-size': 10, color: '#0f172a', 'text-valign': 'bottom', 'text-margin-y': 6, 'background-color': '#dbeafe', 'border-color': '#2563eb', 'border-width': 1.5, width: 28, height: 28 } },
+    { selector: 'node[type = "file"]', style: { 'background-color': '#dcfce7', 'border-color': '#16a34a', shape: 'round-rectangle', width: 42, height: 26 } },
+    { selector: 'node.selected', style: { 'background-color': '#2563eb', 'border-color': '#0f172a', color: '#1d4ed8', 'border-width': 3, width: 38, height: 38 } },
+    { selector: 'edge', style: { label: 'data(label)', 'font-size': 8, color: '#64748b', width: 1.2, 'line-color': '#cbd5e1', 'target-arrow-color': '#cbd5e1', 'target-arrow-shape': 'triangle', 'curve-style': 'bezier' } },
+    { selector: 'edge[type = "calls"]', style: { 'line-color': '#8b5cf6', 'target-arrow-color': '#8b5cf6', width: 1.8 } },
+    { selector: 'edge[type = "imports"]', style: { 'line-color': '#0ea5e9', 'target-arrow-color': '#0ea5e9' } }
+  ];
 }
 
 function OverviewInspector({ node, edges, nodes, onOpenFile }: { node: CodeGraphNode; edges: CodeGraphEdge[]; nodes: CodeGraphNode[]; onOpenFile: (path: string, line?: number) => void }) {
