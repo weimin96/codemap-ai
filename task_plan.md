@@ -25,7 +25,7 @@
 | 17 | complete | 接入 /api/code-graph 与前端代码图谱页 | npm run typecheck；node --check server/server.js |
 | 18 | complete | 图谱 Inspector：Overview/Why Connected/Warnings/Code | npm run typecheck |
 | 19 | complete | AI JSON repair 一次重试 | npm run test；node --check server/ai.js |
-| 20 | pending | 人工确认状态类型与 normalizer 默认值 | npm run typecheck；npm run test |
+| 20 | complete | 人工确认状态类型与 normalizer 默认值 | npm run typecheck；npm run test |
 | 21 | pending | 导出正式 Markdown 文档集 | node --check server/document-exporter.js server/server.js |
 | 22 | pending | README 同步测试、CI、图谱、导出和限制 | npm run typecheck |
 

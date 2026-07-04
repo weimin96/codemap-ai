@@ -17,3 +17,5 @@
 - 阶段 18 验证通过：npm run typecheck。
 - 阶段 19 完成：AI 分析和追问在 JSON 解析失败时使用 repair prompt 重试一次，仍失败才返回明确错误。
 - 阶段 19 验证通过：node --check server/ai.js，npm run test，当前 8 个测试通过。
+- 阶段 20 完成：ProjectModule、CoreFlow、RiskItem、DataEntity 增加 verificationStatus、verifiedBy、verifiedAt、verificationNote；normalizer 默认 ai_guess 并保留显式状态。
+- 阶段 20 验证通过：npm run typecheck，npm run test，当前 9 个测试通过。

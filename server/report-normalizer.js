@@ -64,7 +64,8 @@ function normalizeModule(module, index) {
     risks: asStringArray(module.risks),
     priority: module.priority || 'P1',
     confidence: module.confidence || 'guess',
-    evidence
+    evidence,
+    ...normalizeVerification(module)
   };
 }
 
@@ -121,7 +122,8 @@ function normalizeFlow(flow) {
     breakpoints: asStringArray(flow.breakpoints),
     notes: asStringArray(flow.notes),
     unknowns: asStringArray(flow.unknowns),
-    evidence: normalizeEvidence(flow.evidence, steps.map((step) => step.path).filter(Boolean))
+    evidence: normalizeEvidence(flow.evidence, steps.map((step) => step.path).filter(Boolean)),
+    ...normalizeVerification(flow)
   };
 }
 
@@ -138,7 +140,8 @@ function normalizeRisk(risk, index) {
     verifySteps: asStringArray(risk.verifySteps || risk.verify),
     suggestedTests: asStringArray(risk.suggestedTests),
     confidence: risk.confidence || 'guess',
-    evidence: normalizeEvidence(risk.evidence, fallbackPath, risk.reason || risk.title || '')
+    evidence: normalizeEvidence(risk.evidence, fallbackPath, risk.reason || risk.title || ''),
+    ...normalizeVerification(risk)
   };
 }
 
@@ -181,7 +184,8 @@ function normalizeDataEntity(entity) {
     description: entity.description || '',
     moduleId: entity.moduleId ? normalizeId(entity.moduleId) : '',
     keyFields: asStringArray(entity.keyFields),
-    evidence: normalizeEvidence(entity.evidence)
+    evidence: normalizeEvidence(entity.evidence),
+    ...normalizeVerification(entity)
   };
 }
 
@@ -264,6 +268,20 @@ function toCodeReference(item) {
     reason: item.reason || '报告字段引用该文件',
     confidence: item.confidence || 'guess'
   };
+}
+
+function normalizeVerification(value) {
+  return {
+    verificationStatus: normalizeVerificationStatus(value?.verificationStatus),
+    verifiedBy: value?.verifiedBy || '',
+    verifiedAt: value?.verifiedAt || '',
+    verificationNote: value?.verificationNote || value?.note || ''
+  };
+}
+
+function normalizeVerificationStatus(value) {
+  const allowed = new Set(['ai_guess', 'verified', 'rejected', 'pending', 'stale']);
+  return allowed.has(value) ? value : 'ai_guess';
 }
 
 function asStringArray(value) {

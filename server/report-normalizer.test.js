@@ -30,7 +30,23 @@ test('normalizeReport converts string evidence into code references', () => {
   });
 
   assert.equal(report.modules[0].id, '订单模块');
+  assert.equal(report.modules[0].verificationStatus, 'ai_guess');
   assert.deepEqual(report.modules[0].evidence, [{ path: 'src/order.ts', reason: '模块路径命中', confidence: 'guess' }]);
+});
+
+test('normalizeReport preserves explicit verification status', () => {
+  const report = normalizeReport({
+    modules: [{ name: '支付模块', paths: ['src/pay.ts'], responsibility: '处理支付', verificationStatus: 'verified', verifiedBy: 'owner', verificationNote: '人工确认' }],
+    flows: [{ name: '支付链路', steps: [], verificationStatus: 'stale' }],
+    risks: [{ title: '回调风险', reason: '缺少幂等', verify: '复查回调', verificationStatus: 'pending' }],
+    dataModel: { entities: [{ id: 'order', name: 'Order', description: '订单', verificationStatus: 'rejected' }] }
+  });
+
+  assert.equal(report.modules[0].verificationStatus, 'verified');
+  assert.equal(report.modules[0].verifiedBy, 'owner');
+  assert.equal(report.flows[0].verificationStatus, 'stale');
+  assert.equal(report.risks[0].verificationStatus, 'pending');
+  assert.equal(report.dataModel.entities[0].verificationStatus, 'rejected');
 });
 
 test('summarizeContextPack keeps only public file metadata', () => {

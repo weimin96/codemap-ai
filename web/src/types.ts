@@ -1,5 +1,13 @@
 export type Confidence = 'fact' | 'guess' | 'unknown';
 export type Priority = 'P0' | 'P1' | 'P2' | 'P3';
+export type VerificationStatus = 'ai_guess' | 'verified' | 'rejected' | 'pending' | 'stale';
+
+export interface VerificationFields {
+  verificationStatus: VerificationStatus;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  verificationNote?: string;
+}
 
 export type SymbolKind = 'function' | 'class' | 'method' | 'interface' | 'type' | 'constant';
 export type FlowKind = 'api' | 'page' | 'cli' | 'worker' | 'consumer' | 'job' | 'unknown' | string;
@@ -142,7 +150,7 @@ export interface ModuleDependency {
   evidence: CodeReference[];
 }
 
-export interface ProjectModule {
+export interface ProjectModule extends VerificationFields {
   id?: string;
   name: string;
   paths: string[];
@@ -171,7 +179,7 @@ export interface FlowStep {
   confidence?: Confidence;
 }
 
-export interface CoreFlow {
+export interface CoreFlow extends VerificationFields {
   id?: string;
   kind?: FlowKind;
   name: string;
@@ -190,7 +198,7 @@ export interface CoreFlow {
   evidence?: CodeReference[];
 }
 
-export interface DataEntity {
+export interface DataEntity extends VerificationFields {
   id: string;
   name: string;
   description: string;
@@ -222,7 +230,7 @@ export interface DataModel {
   risks: Array<{ title: string; reason: string; evidence: CodeReference[] }>;
 }
 
-export interface RiskItem {
+export interface RiskItem extends VerificationFields {
   id?: string;
   title: string;
   level: 'high' | 'medium' | 'low';
