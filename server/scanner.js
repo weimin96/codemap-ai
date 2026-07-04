@@ -62,12 +62,7 @@ function filePriority(relPath) {
 async function walk(root, dir = '', depth = 0, maxDepth = 8, result = [], shouldIgnore = () => false) {
   if (depth > maxDepth) return result;
   const absolute = path.join(root, dir);
-  let entries = [];
-  try {
-    entries = await fs.readdir(absolute, { withFileTypes: true });
-  } catch {
-    return result;
-  }
+  const entries = await readDirectoryEntries(absolute, dir || '.');
   entries.sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name));
   for (const entry of entries) {
     if (IGNORE_DIRS.has(entry.name)) continue;
@@ -103,13 +98,9 @@ async function walk(root, dir = '', depth = 0, maxDepth = 8, result = [], should
 
 async function extractFileSymbols(root, relPath, language, size) {
   if (size > 220_000) return [];
-  try {
-    const file = await readTextFileSafe(root, relPath, 220_000);
-    if (file.truncated) return [];
-    return extractSymbols({ path: relPath, language, content: file.content });
-  } catch {
-    return [];
-  }
+  const file = await readScannerFile(root, relPath, 220_000);
+  if (file.truncated) throw new Error(`Symbol extraction input unexpectedly truncated: ${relPath}`);
+  return extractSymbols({ path: relPath, language, content: file.content });
 }
 
 function guessDirRole(relPath) {
@@ -225,19 +216,31 @@ export async function readContextBundle(root, keyFiles, maxFiles = 28) {
   const selected = keyFiles.slice(0, maxFiles);
   const chunks = [];
   for (const file of selected) {
-    try {
-      const read = await readTextFileSafe(root, file.path, 28_000);
-      chunks.push({
-        path: file.path,
-        role: file.role,
-        priority: file.priority,
-        language: file.language,
-        symbols: file.symbols || [],
-        content: read.content
-      });
-    } catch {
-      // skip unreadable file
-    }
+    const read = await readScannerFile(root, file.path, 28_000);
+    chunks.push({
+      path: file.path,
+      role: file.role,
+      priority: file.priority,
+      language: file.language,
+      symbols: file.symbols || [],
+      content: read.content
+    });
   }
   return chunks;
+}
+
+async function readDirectoryEntries(absolute, relPath) {
+  try {
+    return await fs.readdir(absolute, { withFileTypes: true });
+  } catch (error) {
+    throw new Error(`Failed to read directory ${relPath}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+async function readScannerFile(root, relPath, limit) {
+  try {
+    return await readTextFileSafe(root, relPath, limit);
+  } catch (error) {
+    throw new Error(`Failed to read scanner file ${relPath}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
