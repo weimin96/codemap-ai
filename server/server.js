@@ -109,7 +109,10 @@ export async function startServer({ projectDir, port, host, serveWeb = true, acc
 
   app.post('/api/analyze/stream', async (req, res) => {
     const controller = new AbortController();
-    req.on('close', () => controller.abort());
+    let completed = false;
+    res.on('close', () => {
+      if (!completed && !res.writableEnded) controller.abort();
+    });
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
@@ -129,6 +132,7 @@ export async function startServer({ projectDir, port, host, serveWeb = true, acc
         onProgress: (data) => emit('progress', data)
       });
       emit('done', result);
+      completed = true;
     } catch (error) {
       if (!controller.signal.aborted) emit('error', { error: error instanceof Error ? error.message : String(error) });
     } finally {

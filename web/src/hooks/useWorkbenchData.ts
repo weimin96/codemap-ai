@@ -279,7 +279,7 @@ async function runAnalyzeRequest({ config, signal, onProgress }: { config: AiCon
   try {
     return await readAnalyzeStream('/api/analyze/stream', init, onProgress);
   } catch (error) {
-    if (!isHttpStatus(error, 404)) throw error;
+    if (!isHttpStatus(error, 404) && !(error instanceof AnalyzeStreamIncompleteError)) throw error;
     onProgress({ phase: 'fallback', label: '使用兼容分析接口', value: 15 });
     return await requestJson<{ report: Report }>('/api/analyze', init);
   }
@@ -307,7 +307,7 @@ async function readAnalyzeStream(url: string, init: RequestInit, onProgress: (pr
       if (event.event === 'error') throw new Error(`AI 分析失败：${String((event.data as { error?: string })?.error || '分析失败')}`);
     }
   }
-  if (!donePayload) throw new Error('分析流未返回完成事件。');
+  if (!donePayload) throw new AnalyzeStreamIncompleteError();
   return donePayload;
 }
 
@@ -329,6 +329,12 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
 async function buildHttpError(response: Response, data?: { error?: string } | null) {
   const text = data?.error || await response.text().catch(() => '');
   return new HttpStatusError(response.status, response.statusText, text);
+}
+
+class AnalyzeStreamIncompleteError extends Error {
+  constructor() {
+    super('分析流提前结束，未返回完成事件。');
+  }
 }
 
 class HttpStatusError extends Error {
