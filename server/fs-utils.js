@@ -31,8 +31,9 @@ export async function exists(p) {
   try {
     await fs.access(p);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw new Error(`Failed to access path ${p}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

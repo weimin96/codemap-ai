@@ -31,3 +31,5 @@
 - 阶段 11 验证通过：node --check server/scanner.js；npm run typecheck。
 - 阶段 12 完成：配置文件不存在时仍使用环境变量；配置文件存在但无法读取、JSON 不合法或解密失败时明确报错。
 - 阶段 12 验证通过：node --check server/config-store.js server/server.js；npm run typecheck。
+- 阶段 13 完成：exists 只把 ENOENT 判定为不存在；ignore 文件读取只在 ENOENT 时忽略，其他 IO 错误中止。
+- 阶段 13 验证通过：node --check server/fs-utils.js server/ignore-rules.js server/config-store.js server/report-store.js；npm run typecheck --silent。

@@ -22,10 +22,12 @@ export async function loadIgnoreRules(root) {
 }
 
 async function readIgnoreFile(root, file) {
+  const filePath = path.join(root, file);
   try {
-    return await fs.readFile(path.join(root, file), 'utf8');
-  } catch {
-    return '';
+    return await fs.readFile(filePath, 'utf8');
+  } catch (error) {
+    if (error?.code === 'ENOENT') return '';
+    throw new Error(`Failed to read ignore file ${file}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
