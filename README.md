@@ -151,7 +151,7 @@ API Key: 留空
 - 基于正则提取 JavaScript / TypeScript / Python / Go / Java 的函数、类、接口、方法和常量。
 - 构建 Repo Map，并按优先级、路径角色、符号数量和文件大小排序。
 - 构建 JS/TS Code Graph，输出 nodes、edges、warnings，边类型包含 `contains`、`defines`、`imports`、`calls`。
-- Code Graph 支持解析相对导入、近似函数调用、未解析导入和未解析调用告警。
+- Code Graph 使用 TypeScript AST 提取 JS/TS imports、exports、require、动态 import 和 CallExpression，再进行本地符号匹配。
 - 图谱页支持 Inspector：概览、解释、为什么有关、告警、代码。
 - Inspector 解释 tab 使用 600ms 延迟触发、切换取消和前端 session cache。
 - Why Connected 通过最短路径解释两个节点为什么有关。
@@ -224,7 +224,7 @@ API Key 优先可通过环境变量提供。通过页面保存时，配置写入
 - 产品展示名、README 标题、系统顶部品牌和主 CLI 已统一为 CodeAtlas；npm 包名仍保留 `project-fast-onboarding`，尚未迁移。
 - 符号索引当前使用正则实现，不是 Tree-sitter AST 级索引。
 - Code Graph 目前只支持 JS/TS 图谱层；Python / Go / Java 仍只有符号索引。
-- `calls` 是基于名称匹配的近似静态调用关系，无法覆盖动态调用、别名、重导出和复杂类型推断。
+- `calls` 已改为 TypeScript AST CallExpression 提取，但目标解析仍基于名称匹配，无法覆盖动态调用、别名、重导出和复杂类型推断。
 - 核心链路仍是候选链路，不是完整精确调用图。
 - Context Pack 使用字符预算近似 token 预算。
 - Context Pack mode 是启发式加权，不是调用图或本地 RAG。

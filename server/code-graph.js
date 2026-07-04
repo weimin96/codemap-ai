@@ -1,9 +1,9 @@
 import path from 'node:path';
+import ts from 'typescript';
 import { readTextFileSafe, toPosix } from './fs-utils.js';
 
 const GRAPH_LANGUAGES = new Set(['javascript', 'typescript']);
 const GRAPH_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
-const CONTROL_CALLS = new Set(['if', 'for', 'while', 'switch', 'catch', 'function', 'return', 'throw', 'new', 'class', 'typeof', 'await']);
 const MAX_GRAPH_FILE_BYTES = 260_000;
 const MAX_WARNINGS = 200;
 
@@ -42,7 +42,9 @@ export async function buildCodeGraph({ root, scan }) {
       continue;
     }
     const read = await readGraphFile(root, file.path);
-    const imports = extractImports(read.content);
+    const sourceFile = parseSourceFile(file.path, read.content, warnings);
+    if (!sourceFile) continue;
+    const imports = extractImports(sourceFile);
     for (const item of imports) {
       const targetPath = resolveImportPath(file.path, item.specifier, filePathSet);
       if (!targetPath) {
@@ -56,8 +58,7 @@ export async function buildCodeGraph({ root, scan }) {
     for (const symbol of fileSymbols) {
       const source = symbolById.get(symbol.id);
       if (!source) continue;
-      const body = sliceLines(read.content, symbol.startLine, symbol.endLine);
-      for (const call of extractCalls(body, symbol.startLine)) {
+      for (const call of extractCalls(sourceFile, symbol.startLine, symbol.endLine)) {
         const target = resolveCallTarget(call.name, file.path, symbol.id, symbolById, symbolsByName);
         if (!target) {
           pushWarning(warnings, { path: file.path, kind: 'unresolved_call', message: `无法解析调用：${call.name}` });
@@ -178,18 +179,43 @@ async function readGraphFile(root, relPath) {
   }
 }
 
-function extractImports(content) {
-  const imports = [];
-  const lines = content.split(/\r?\n/);
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = stripLineComment(lines[index]);
-    const importMatch = line.match(/\bimport\s+(?:type\s+)?(?:[^'\"]+?\s+from\s+)?['\"]([^'\"]+)['\"]/);
-    const exportMatch = line.match(/\bexport\s+[^'\"]*\s+from\s+['\"]([^'\"]+)['\"]/);
-    const requireMatch = line.match(/\brequire\(\s*['\"]([^'\"]+)['\"]\s*\)/);
-    const dynamicMatch = line.match(/\bimport\(\s*['\"]([^'\"]+)['\"]\s*\)/);
-    const specifier = importMatch?.[1] || exportMatch?.[1] || requireMatch?.[1] || dynamicMatch?.[1];
-    if (specifier) imports.push({ specifier, line: index + 1 });
+function parseSourceFile(filePath, content, warnings) {
+  const kind = scriptKindForPath(filePath);
+  const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true, kind);
+  for (const diagnostic of sourceFile.parseDiagnostics || []) {
+    pushWarning(warnings, {
+      path: filePath,
+      kind: 'parse_error',
+      message: ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ')
+    });
   }
+  return sourceFile;
+}
+
+function scriptKindForPath(filePath) {
+  if (filePath.endsWith('.tsx')) return ts.ScriptKind.TSX;
+  if (filePath.endsWith('.jsx')) return ts.ScriptKind.JSX;
+  if (filePath.endsWith('.ts')) return ts.ScriptKind.TS;
+  return ts.ScriptKind.JS;
+}
+
+function extractImports(sourceFile) {
+  const imports = [];
+  walk(sourceFile, (node) => {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+      imports.push({ specifier: node.moduleSpecifier.text, line: nodeLine(sourceFile, node) });
+    }
+    if (ts.isCallExpression(node)) {
+      if (ts.isIdentifier(node.expression) && node.expression.text === 'require') {
+        const [first] = node.arguments;
+        if (first && ts.isStringLiteral(first)) imports.push({ specifier: first.text, line: nodeLine(sourceFile, node) });
+      }
+      if (node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+        const [first] = node.arguments;
+        if (first && ts.isStringLiteral(first)) imports.push({ specifier: first.text, line: nodeLine(sourceFile, node) });
+      }
+    }
+  });
   return imports;
 }
 
@@ -201,19 +227,31 @@ function resolveImportPath(fromPath, specifier, filePathSet) {
   return candidates.find((candidate) => filePathSet.has(candidate)) || '';
 }
 
-function extractCalls(content, offsetLine) {
+function extractCalls(sourceFile, startLine, endLine) {
   const calls = [];
-  const lines = content.split(/\r?\n/);
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = stripStrings(stripLineComment(lines[index]));
-    const regex = /(?<![\w$\.])([A-Za-z_$][\w$]*)\s*\(/g;
-    let match;
-    while ((match = regex.exec(line))) {
-      const name = match[1];
-      if (!CONTROL_CALLS.has(name)) calls.push({ name, line: offsetLine + index });
-    }
-  }
+  walk(sourceFile, (node) => {
+    if (!ts.isCallExpression(node)) return;
+    const line = nodeLine(sourceFile, node);
+    if (line < startLine || line > endLine) return;
+    const name = callName(node.expression);
+    if (name) calls.push({ name, line });
+  });
   return calls;
+}
+
+function callName(expression) {
+  if (ts.isIdentifier(expression)) return expression.text;
+  if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+  return '';
+}
+
+function walk(node, visit) {
+  visit(node);
+  ts.forEachChild(node, (child) => walk(child, visit));
+}
+
+function nodeLine(sourceFile, node) {
+  return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 }
 
 function resolveCallTarget(name, fromPath, sourceId, symbolById, symbolsByName) {
@@ -222,20 +260,6 @@ function resolveCallTarget(name, fromPath, sourceId, symbolById, symbolsByName) 
   if (local) return local;
   const nonSelf = candidates.filter((node) => node.id !== sourceId);
   return nonSelf.length === 1 ? nonSelf[0] : null;
-}
-
-function sliceLines(content, startLine, endLine) {
-  const lines = content.split(/\r?\n/);
-  return lines.slice(Math.max(0, startLine - 1), Math.max(startLine, endLine)).join('\n');
-}
-
-function stripLineComment(line) {
-  const index = line.indexOf('//');
-  return index === -1 ? line : line.slice(0, index);
-}
-
-function stripStrings(line) {
-  return line.replace(/(['"`])(?:\\.|(?!\1).)*\1/g, '');
 }
 
 function pushWarning(warnings, warning) {
