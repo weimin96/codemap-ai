@@ -10,7 +10,7 @@
 
 本地项目快速接管工作台。通过 npm 安装后，用命令指定一个本地项目目录，在浏览器里查看项目总览、模块地图、模块详情、核心链路、链路详情、数据模型、风险雷达、代码图谱、代码证据，并基于当前文件、选中代码、符号、链路或风险追问 AI。
 
-> npm 包名当前仍沿用 `project-fast-onboarding`；CLI 已新增 `codeatlas`，并保留 `pfo` / `project-fast-onboarding` 兼容入口。
+> npm 包名为 `@codemapai/codemap-ai`；CLI 已新增 `codeatlas`，并保留 `pfo` / `project-fast-onboarding` 兼容入口。
 
 ## 当前版本
 
@@ -46,13 +46,13 @@
 ## 安装
 
 ```bash
-npm install -g ./project-fast-onboarding-0.5.1.tgz
+npm install -g ./codemapai-codemap-ai-0.5.1.tgz
 ```
 
 或者发布到 npm 后：
 
 ```bash
-npm install -g project-fast-onboarding
+npm install -g @codemapai/codemap-ai
 ```
 
 ## 使用
@@ -224,7 +224,7 @@ API Key 优先可通过环境变量提供。通过页面保存时，配置写入
 
 ## 当前限制
 
-- 产品展示名、README 标题、系统顶部品牌和主 CLI 已统一为 CodeAtlas；npm 包名仍保留 `project-fast-onboarding`，尚未迁移。
+- 产品展示名、README 标题、系统顶部品牌和主 CLI 已统一为 CodeAtlas；npm 包名已迁移为 `@codemapai/codemap-ai`。
 - 符号索引当前使用正则实现，不是 Tree-sitter AST 级索引。
 - Code Graph 目前只支持 JS/TS 图谱层；Python / Go / Java 仍只有符号索引。
 - `calls` 已改为 TypeScript AST CallExpression 提取，但目标解析仍基于名称匹配，无法覆盖动态调用、别名、重导出和复杂类型推断。
