@@ -41,7 +41,7 @@ export function CodeWorkspace({
   onOpenSymbol: (symbol: SymbolInfo) => void;
   onEditorMount: OnMount;
 }) {
-  return <main className="min-w-0 border-r flex flex-col">
+  return <main className="min-h-0 min-w-0 border-r flex flex-col">
     <TopMap report={report} activeFlow={activeFlow} onOpenStep={onOpenStep} />
     <FileHeader currentFile={currentFile} currentSymbol={currentSymbol} selection={selection} />
     <CodeImpactPanel report={report} currentFile={currentFile} currentSymbol={currentSymbol} />

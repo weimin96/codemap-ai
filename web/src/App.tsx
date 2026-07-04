@@ -1,7 +1,9 @@
-import { lazy, Suspense, useRef, useState } from 'react';
+import { lazy, Suspense, useRef, useState, type CSSProperties } from 'react';
 import type { OnMount } from '@monaco-editor/react';
+import { PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { AppShell, type PageId } from '@/components/AppShell';
 import { useWorkbenchData } from '@/hooks/useWorkbenchData';
+import { Button } from '@/components/ui/button';
 import type { CodeReference, CoreFlow, FlowStep, ProjectModule, RiskItem, SymbolInfo, VerificationStatus } from '@/types';
 
 const AskPanel = lazy(() => import('@/components/AskPanel').then((module) => ({ default: module.AskPanel })));
@@ -21,6 +23,7 @@ export default function App() {
   const [activePage, setActivePage] = useState<PageId>('overview');
   const [activeModuleId, setActiveModuleId] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [askPanelOpen, setAskPanelOpen] = useState(true);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const workbench = useWorkbenchData();
 
@@ -91,6 +94,8 @@ export default function App() {
     void workbench.updateVerification(kind, id, status);
   }
 
+  const codeLayoutStyle = { '--ask-panel-width': askPanelOpen ? '380px' : '0px' } as CSSProperties;
+
   function openSymbol(symbol: SymbolInfo) {
     workbench.setCurrentSymbol(symbol);
     workbench.setSelection({ startLine: symbol.startLine, endLine: symbol.endLine });
@@ -128,7 +133,13 @@ export default function App() {
       {activePage === 'risks' && <RiskPage report={workbench.report} activeRisk={workbench.activeRisk} loading={workbench.loading} onSelectRisk={workbench.setActiveRisk} onOpenRiskCode={openRiskCode} onUpdateVerification={changeVerification} />}
       {activePage === 'graph' && <CodeGraphPage graph={workbench.codeGraph} report={workbench.report} config={workbench.config} currentFile={workbench.currentFile} currentSymbol={workbench.currentSymbol} activeFlow={workbench.activeFlow} activeRisk={workbench.activeRisk} loading={workbench.loading} onLoadGraph={workbench.loadCodeGraph} onOpenFile={openGraphFile} />}
       {activePage === 'history' && <HistoryPage report={workbench.report} askThreads={workbench.askThreads} />}
-      {activePage === 'code' && <div className="grid h-[calc(100vh-104px)] grid-cols-[minmax(680px,1fr)_380px] gap-4">
+      {activePage === 'code' && <div className="flex h-[calc(100vh-104px)] flex-col gap-3">
+        <div className="flex justify-end">
+          <Button type="button" size="sm" variant="outline" onClick={() => setAskPanelOpen((open) => !open)}>
+            {askPanelOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}{askPanelOpen ? '收起追问' : '展开追问'}
+          </Button>
+        </div>
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_var(--ask-panel-width)] gap-4 transition-[grid-template-columns] duration-200" style={codeLayoutStyle}>
         <CodeWorkspace
           report={workbench.report}
           activeFlow={workbench.activeFlow}
@@ -145,7 +156,8 @@ export default function App() {
           onOpenSymbol={openSymbol}
           onEditorMount={editorMount}
         />
-        <AskPanel
+        <div className="min-w-0 overflow-hidden">
+          {askPanelOpen && <AskPanel
           report={workbench.report}
           currentFile={workbench.currentFile}
           currentSymbol={workbench.currentSymbol}
@@ -159,7 +171,9 @@ export default function App() {
           onAsk={workbench.ask}
           onExportContextPack={exportContextPack}
           onOpenFile={workbench.openFile}
-        />
+        />}
+        </div>
+        </div>
       </div>}
       {settingsOpen && <SettingsPage open={settingsOpen} config={workbench.config} loading={workbench.loading} onOpenChange={setSettingsOpen} onConfigChange={workbench.setConfig} onSaveConfig={workbench.saveConfig} />}
     </Suspense>
