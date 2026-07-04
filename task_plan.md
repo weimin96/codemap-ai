@@ -15,7 +15,7 @@
 | 29 | complete | 抽象 ObjectInspector 通用组件，并在图谱页复用 | typecheck、build、lint |
 | 30 | complete | 首页分析质量展示图谱 warning 分类和跳过大文件 | typecheck、build、lint |
 | 31 | complete | 图谱画布增加显示范围和排序依据选择器 | typecheck、build、e2e |
-| 32 | pending | Explain 收口为 selected/neighbors/flow impact/risk path，明确不做 Explain All | typecheck、build、lint |
+| 32 | complete | Explain 收口为 selected/neighbors/flow impact/risk path，明确不做 Explain All | typecheck、build、lint |
 | 33 | pending | README 同步与全量验证 | lint、test、e2e、build、dry-run |
 
 ## 风险

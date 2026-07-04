@@ -14,6 +14,7 @@ type SearchKind = 'all' | 'file' | 'function' | 'module' | 'warning';
 type NeighborMode = 'direct' | 'callers' | 'callees' | 'imports' | 'two-hop';
 type CanvasRange = 'current' | 'module' | 'flow' | 'file' | 'top';
 type CanvasSort = 'importance' | 'risk' | 'entry' | 'degree' | 'search';
+type ExplainMode = 'selected' | 'neighbors' | 'flow-impact' | 'risk-path';
 type EdgeType = CodeGraphEdge['type'];
 
 export function CodeGraphPage({
@@ -54,6 +55,7 @@ export function CodeGraphPage({
   const [explanation, setExplanation] = useState('');
   const [explainLoading, setExplainLoading] = useState(false);
   const [explainError, setExplainError] = useState('');
+  const [explainMode, setExplainMode] = useState<ExplainMode>('selected');
   const explainCacheRef = useRef(new Map<string, string>());
 
   useEffect(() => {
@@ -82,7 +84,7 @@ export function CodeGraphPage({
 
   useEffect(() => {
     if (!selectedNode || tab !== 'explain') return;
-    const scopeKey = `${graph?.generatedAt || 'graph'}:${selectedNode.id}`;
+    const scopeKey = `${graph?.generatedAt || 'graph'}:${selectedNode.id}:${explainMode}`;
     const cached = explainCacheRef.current.get(scopeKey);
     if (cached) {
       setExplanation(cached);
@@ -100,11 +102,11 @@ export function CodeGraphPage({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: controller.signal,
-          body: JSON.stringify({ scopeKey, node: selectedNode, relatedEdges, warnings: selectedWarnings, businessLinks, config })
+          body: JSON.stringify({ scopeKey, mode: explainMode, node: selectedNode, relatedEdges, warnings: selectedWarnings, businessLinks, config })
         });
         const data = await response.json().catch(() => null) as { explanation?: string; error?: string } | null;
         if (!response.ok || data?.error) throw new Error(data?.error || `解释失败：${response.status}`);
-        const next = data?.explanation || buildNodeExplanation({ node: selectedNode, edges: relatedEdges, nodes, warnings: selectedWarnings, businessLinks });
+        const next = data?.explanation || buildNodeExplanation({ node: selectedNode, edges: relatedEdges, nodes, warnings: selectedWarnings, businessLinks, explainMode });
         explainCacheRef.current.set(scopeKey, next);
         setExplanation(next);
       } catch (error) {
@@ -118,7 +120,7 @@ export function CodeGraphPage({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [businessLinks, config, graph?.generatedAt, nodes, relatedEdges, selectedNode, selectedWarnings, tab]);
+  }, [businessLinks, config, explainMode, graph?.generatedAt, nodes, relatedEdges, selectedNode, selectedWarnings, tab]);
 
   if (!graph) return <div className="space-y-4">
     <SectionTitle title="代码图谱" description="基于 JS/TS 静态扫描构建文件、符号、导入和调用关系。" />
@@ -191,7 +193,7 @@ export function CodeGraphPage({
         onTabChange={setTab}
         tabs={[
           { id: 'overview', content: <OverviewInspector node={selectedNode} edges={relatedEdges} nodes={nodes} businessLinks={businessLinks} onOpenFile={onOpenFile} /> },
-          { id: 'explain', content: <ExplainInspector loading={explainLoading} explanation={explanation} error={explainError} fallback={() => buildNodeExplanation({ node: selectedNode, edges: relatedEdges, nodes, warnings: selectedWarnings, businessLinks })} /> },
+          { id: 'explain', content: <ExplainInspector mode={explainMode} onModeChange={setExplainMode} loading={explainLoading} explanation={explanation} error={explainError} fallback={() => buildNodeExplanation({ node: selectedNode, edges: relatedEdges, nodes, warnings: selectedWarnings, businessLinks, explainMode })} /> },
           { id: 'why-connected', content: <WhyInspector nodes={nodes} selectedNode={selectedNode} targetNode={targetNode} targetId={targetId} connection={connection} onTargetChange={setTargetId} /> },
           { id: 'warnings', content: <WarningsInspector warnings={selectedWarnings} /> },
           { id: 'code', content: <CodeInspector node={selectedNode} onOpenFile={onOpenFile} /> }
@@ -390,13 +392,22 @@ function WhyInspector({ nodes, selectedNode, targetNode, targetId, connection, o
   </div>;
 }
 
-function ExplainInspector({ loading, explanation, error, fallback }: { loading: boolean; explanation: string; error: string; fallback: () => string }) {
-  if (loading) return <EmptyState text="解释生成中，切换节点会取消旧请求。" />;
-  if (error) return <div className="space-y-3">
-    <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm leading-6 text-red-800">AI Explain 失败：{error}</div>
-    <div className="rounded-xl border bg-slate-50 p-4 text-sm leading-6 text-slate-700 whitespace-pre-wrap">{fallback()}</div>
+function ExplainInspector({ mode, onModeChange, loading, explanation, error, fallback }: { mode: ExplainMode; onModeChange: (mode: ExplainMode) => void; loading: boolean; explanation: string; error: string; fallback: () => string }) {
+  return <div className="space-y-3">
+    <div className="rounded-xl border bg-slate-50 p-3">
+      <div className="mb-2 text-xs font-medium text-slate-500">解释范围</div>
+      <div className="flex flex-wrap gap-2">
+        {(['selected', 'neighbors', 'flow-impact', 'risk-path'] as ExplainMode[]).map((item) => <Button key={item} size="sm" variant={mode === item ? 'default' : 'outline'} onClick={() => onModeChange(item)}>{explainModeLabel(item)}</Button>)}
+      </div>
+      <div className="mt-2 text-xs text-slate-500">不提供 Explain All，避免高费用、浅上下文和伪确定性。</div>
+    </div>
+    {loading && <EmptyState text="解释生成中，切换节点或解释范围会取消旧请求。" />}
+    {!loading && error && <div className="space-y-3">
+      <div className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm leading-6 text-red-800">AI Explain 失败：{error}</div>
+      <div className="rounded-xl border bg-slate-50 p-4 text-sm leading-6 text-slate-700 whitespace-pre-wrap">{fallback()}</div>
+    </div>}
+    {!loading && !error && <div className="rounded-xl border bg-slate-50 p-4 text-sm leading-6 text-slate-700 whitespace-pre-wrap">{explanation || '暂无解释。'}</div>}
   </div>;
-  return <div className="rounded-xl border bg-slate-50 p-4 text-sm leading-6 text-slate-700 whitespace-pre-wrap">{explanation || '暂无解释。'}</div>;
 }
 
 function WarningsInspector({ warnings }: { warnings: CodeGraph['warnings'] }) {
@@ -682,7 +693,7 @@ function rebuildPath(previous: Map<string, { nodeId: string; edge: CodeGraphEdge
   return items;
 }
 
-function buildNodeExplanation({ node, edges, nodes, warnings, businessLinks }: { node: CodeGraphNode; edges: CodeGraphEdge[]; nodes: CodeGraphNode[]; warnings: CodeGraph['warnings']; businessLinks: BusinessLinks }) {
+function buildNodeExplanation({ node, edges, nodes, warnings, businessLinks, explainMode = 'selected' }: { node: CodeGraphNode; edges: CodeGraphEdge[]; nodes: CodeGraphNode[]; warnings: CodeGraph['warnings']; businessLinks: BusinessLinks; explainMode?: ExplainMode }) {
   const outgoing = edges.filter((edge) => edge.source === node.id);
   const incoming = edges.filter((edge) => edge.target === node.id);
   const byType = edges.reduce<Record<string, number>>((acc, edge) => {
@@ -692,12 +703,16 @@ function buildNodeExplanation({ node, edges, nodes, warnings, businessLinks }: {
   const topTargets = outgoing.slice(0, 5).map((edge) => nodes.find((item) => item.id === edge.target)?.name || edge.target);
   const topSources = incoming.slice(0, 5).map((edge) => nodes.find((item) => item.id === edge.source)?.name || edge.source);
   return [
+    `解释范围：${explainModeLabel(explainMode)}`,
     `对象：${node.name}（${node.type}）`,
     node.path ? `位置：${node.path}${node.startLine ? `:${node.startLine}` : ''}` : '',
     `直接关系：${edges.length} 条；入边 ${incoming.length} 条，出边 ${outgoing.length} 条。`,
     `关系类型：${Object.entries(byType).map(([type, count]) => `${type}=${count}`).join('，') || '无'}。`,
     topSources.length ? `主要来源：${topSources.join('、')}` : '主要来源：无',
     topTargets.length ? `主要指向：${topTargets.join('、')}` : '主要指向：无',
+    explainMode === 'neighbors' ? '解释重点：优先检查直接邻居和 2-hop 影响范围，确认调用方、被调用方和 import 依赖。' : '',
+    explainMode === 'flow-impact' ? '解释重点：优先判断该对象是否处于当前链路步骤、入口、服务层或数据读写路径中。' : '',
+    explainMode === 'risk-path' ? '解释重点：优先判断该对象是否关联风险证据、解析告警、状态变化或外部调用。' : '',
     businessLinks.modules.length ? `所属模块：${businessLinks.modules.map((item) => item.name).join('、')}` : '所属模块：暂无匹配',
     businessLinks.flows.length ? `影响链路：${businessLinks.flows.map((item) => item.name).join('、')}` : '影响链路：暂无匹配',
     businessLinks.risks.length ? `关联风险：${businessLinks.risks.map((item) => item.title).join('、')}` : '关联风险：暂无匹配',
@@ -712,6 +727,10 @@ function scopeLabel(scope: GraphScope) {
 
 function canvasRangeLabel(range: CanvasRange) {
   return ({ current: '当前过滤结果', module: '当前模块', flow: '当前链路', file: '当前文件', top: '全项目 Top 140' })[range];
+}
+
+function explainModeLabel(mode: ExplainMode) {
+  return ({ selected: 'Explain selected', neighbors: 'Explain neighbors', 'flow-impact': 'Explain current flow impact', 'risk-path': 'Explain risk path' })[mode];
 }
 
 function canvasSortLabel(sort: CanvasSort) {

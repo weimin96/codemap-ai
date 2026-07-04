@@ -217,14 +217,14 @@ export async function startServer({ projectDir, port, host }) {
 
   app.post('/api/explain-node', async (req, res, next) => {
     try {
-      const { scopeKey, node, relatedEdges = [], warnings = [], businessLinks = {}, config: bodyConfig = {} } = req.body || {};
+      const { scopeKey, mode = 'selected', node, relatedEdges = [], warnings = [], businessLinks = {}, config: bodyConfig = {} } = req.body || {};
       if (!scopeKey) throw new Error('scopeKey is required');
       if (!node?.id) throw new Error('node is required');
       const cached = await readExplainCache(projectDir, scopeKey);
       if (cached?.explanation) return res.json({ cached: true, explanation: cached.explanation, answer: cached.answer || null });
       const config = await mergeRuntimeConfig(bodyConfig);
-      const question = buildExplainQuestion(node);
-      const context = { node, relatedEdges, warnings, businessLinks };
+      const question = buildExplainQuestion(node, mode);
+      const context = { mode, node, relatedEdges, warnings, businessLinks };
       const answer = await askWithAI({ question, context, config });
       const explanation = formatExplainAnswer(answer);
       const payload = { explanation, answer, node, relatedEdges, warnings, businessLinks, generatedAt: new Date().toISOString() };
@@ -271,8 +271,14 @@ export async function startServer({ projectDir, port, host }) {
   });
 }
 
-function buildExplainQuestion(node) {
-  return `请基于代码图谱解释这个节点的职责、直接关系、影响范围、相关模块/链路/风险，以及下一步人工验证动作。节点：${node.name} (${node.type}) ${node.path || ''}`;
+function buildExplainQuestion(node, mode = 'selected') {
+  const modeLabel = {
+    selected: 'Explain selected：解释当前选中对象',
+    neighbors: 'Explain neighbors：解释直接邻居和 2-hop 影响范围',
+    'flow-impact': 'Explain current flow impact：解释当前链路影响',
+    'risk-path': 'Explain risk path：解释风险影响路径'
+  }[mode] || 'Explain selected：解释当前选中对象';
+  return `请基于代码图谱执行 ${modeLabel}。说明节点职责、直接关系、影响范围、相关模块/链路/风险，以及下一步人工验证动作。节点：${node.name} (${node.type}) ${node.path || ''}`;
 }
 
 function formatExplainAnswer(answer) {

@@ -9,3 +9,5 @@
 - 阶段 30 验证通过：tsc --noEmit、vite build、npm run lint。
 - 阶段 31 完成：图谱画布新增显示范围选择器（当前过滤结果、当前模块、当前链路、当前文件、全项目 Top 140）和排序依据（重要性、风险相关、入口相关、调用度、最近搜索），并在画布说明中解释节点/边数量限制。
 - 阶段 31 验证通过：tsc --noEmit、vite build、Playwright e2e。
+- 阶段 32 完成：Explain tab 新增 Explain selected、Explain neighbors、Explain current flow impact、Explain risk path 四种解释范围，并明确不提供 Explain All；后端 explain prompt 会接收 mode。
+- 阶段 32 验证通过：node --check server/server.js、tsc --noEmit、vite build、npm run lint。
