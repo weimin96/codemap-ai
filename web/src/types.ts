@@ -26,6 +26,7 @@ export interface CodeGraphEdge {
   target: string;
   type: string;
   line?: number;
+  confidence?: Confidence;
 }
 
 export interface CodeGraphWarning {

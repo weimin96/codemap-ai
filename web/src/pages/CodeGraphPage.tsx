@@ -449,7 +449,10 @@ function GraphEdgeRow({ edge, nodes, selectedId }: { edge: CodeGraphEdge; nodes:
   const isOutgoing = edge.source === selectedId;
   const other = nodes.find((node) => node.id === (isOutgoing ? edge.target : edge.source));
   return <div className="flex items-start gap-3 rounded-lg border p-3">
-    <Badge variant={edge.type === 'calls' ? 'default' : 'outline'}>{edge.type}</Badge>
+    <div className="flex flex-col gap-1">
+      <Badge variant={edge.type === 'calls' ? 'default' : 'outline'}>{edge.type}</Badge>
+      {edge.confidence === 'guess' && <Badge variant="warning">推测</Badge>}
+    </div>
     <div className="min-w-0 flex-1">
       <div className="text-sm text-slate-700">{isOutgoing ? '指向' : '来自'} <span className="font-semibold text-slate-950">{other?.name || (isOutgoing ? edge.target : edge.source)}</span></div>
       {other?.path && <div className="mt-1 truncate font-mono text-xs text-slate-500">{other.path}{edge.line ? `:${edge.line}` : ''}</div>}
@@ -462,7 +465,7 @@ function PathRow({ item, nodes }: { item: { from: string; to: string; edge: Code
   const to = nodes.find((node) => node.id === item.to);
   return <div className="rounded-lg border p-3 text-sm">
     <div className="font-medium text-slate-950">{from?.name || item.from} → {to?.name || item.to}</div>
-    <div className="mt-1 text-xs text-slate-500">关系：{item.edge.type}</div>
+    <div className="mt-1 text-xs text-slate-500">关系：{item.edge.type}{item.edge.confidence === 'guess' ? ' · 推测' : ''}</div>
   </div>;
 }
 

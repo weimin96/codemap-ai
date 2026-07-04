@@ -38,9 +38,20 @@ test('buildCodeGraph extracts file, symbol, import and call edges', async () => 
 
   assert.ok(graph.nodes.some((node) => node.id === 'file:src/index.ts'));
   assert.ok(graph.nodes.some((node) => node.name === 'start' && node.type === 'function'));
-  assert.ok(graph.edges.some((edge) => edge.source === 'file:src/index.ts' && edge.target === 'file:src/order.ts' && edge.type === 'imports'));
-  assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes(':runOrder')));
-  assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':runOrder') && edge.target.includes(':persistOrder')));
+  assert.ok(graph.edges.some((edge) => edge.source === 'file:src/index.ts' && edge.target === 'file:src/order.ts' && edge.type === 'imports' && edge.confidence === 'fact'));
+  assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes(':runOrder') && edge.confidence === 'guess'));
+  assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':runOrder') && edge.target.includes(':persistOrder') && edge.confidence === 'fact'));
+});
+
+test('buildCodeGraph preserves type and constant symbol node kinds', async () => {
+  const fixture = await createFixture({
+    'src/model.ts': "export type UserId = string;\nexport const ORDER_KIND = 'online';\n"
+  });
+
+  const graph = await buildCodeGraph(fixture);
+
+  assert.ok(graph.nodes.some((node) => node.name === 'UserId' && node.type === 'type'));
+  assert.ok(graph.nodes.some((node) => node.name === 'ORDER_KIND' && node.type === 'constant'));
 });
 
 test('findShortestPath returns an undirected connection path', () => {

@@ -64,7 +64,7 @@ export async function buildCodeGraph({ root, scan }) {
           pushWarning(warnings, { path: file.path, kind: 'unresolved_call', message: `无法解析调用：${call.name}` });
           continue;
         }
-        addEdge(edges, seenEdges, source.id, target.id, 'calls', call.line);
+        addEdge(edges, seenEdges, source.id, target.node.id, 'calls', call.line, target.confidence);
       }
     }
   }
@@ -131,12 +131,12 @@ function addNode(nodes, seen, node) {
   nodes.push(node);
 }
 
-function addEdge(edges, seen, source, target, type, line) {
+function addEdge(edges, seen, source, target, type, line, confidence = 'fact') {
   if (!source || !target || source === target) return;
   const key = `${source}|${target}|${type}|${line || ''}`;
   if (seen.has(key)) return;
   seen.add(key);
-  edges.push({ source, target, type, line });
+  edges.push({ source, target, type, line, confidence });
 }
 
 function fileNode(filePath) {
@@ -150,7 +150,7 @@ function directoryNode(directoryPath) {
 function symbolNode(symbol) {
   return {
     id: symbol.id,
-    type: symbol.kind === 'type' || symbol.kind === 'constant' ? 'function' : symbol.kind,
+    type: symbol.kind,
     name: symbol.name,
     path: symbol.path,
     startLine: symbol.startLine,
@@ -257,9 +257,9 @@ function nodeLine(sourceFile, node) {
 function resolveCallTarget(name, fromPath, sourceId, symbolById, symbolsByName) {
   const candidates = symbolsByName.get(name) || [];
   const local = candidates.find((node) => node.path === fromPath && node.id !== sourceId);
-  if (local) return local;
+  if (local) return { node: local, confidence: 'fact' };
   const nonSelf = candidates.filter((node) => node.id !== sourceId);
-  return nonSelf.length === 1 ? nonSelf[0] : null;
+  return nonSelf.length === 1 ? { node: nonSelf[0], confidence: 'guess' } : null;
 }
 
 function pushWarning(warnings, warning) {
