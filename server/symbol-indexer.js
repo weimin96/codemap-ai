@@ -50,6 +50,8 @@ function javascriptSymbol({ line, startLine, lines }) {
     { kind: 'class', match: trimmed.match(/^(?:export\s+)?(?:default\s+)?class\s+([A-Za-z_$][\w$]*)/) },
     { kind: 'interface', match: trimmed.match(/^(?:export\s+)?interface\s+([A-Za-z_$][\w$]*)/) },
     { kind: 'type', match: trimmed.match(/^(?:export\s+)?type\s+([A-Za-z_$][\w$]*)\s*[=<]/) },
+    { kind: 'enum', match: trimmed.match(/^(?:export\s+)?enum\s+([A-Za-z_$][\w$]*)/) },
+    { kind: 'function', match: trimmed.match(/^export\s+default\s+(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/) },
     { kind: 'function', match: trimmed.match(/^(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s*([A-Za-z_$][\w$]*)?\s*\(/) },
     { kind: 'function', match: trimmed.match(/^(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/) },
     { kind: 'function', match: trimmed.match(/^(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*(?:async\s*)?function\s*\(/) },
@@ -63,7 +65,13 @@ function javascriptSymbol({ line, startLine, lines }) {
     return buildSymbol({ name, kind: declaration.kind, line, startLine, lines, language: 'javascript' });
   }
 
-  const methodMatch = trimmed.match(/^(?:public\s+|private\s+|protected\s+|static\s+|readonly\s+|async\s+|get\s+|set\s+)*([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*(?::[^=]+)?\s*\{?$/);
+  const methodPatterns = [
+    trimmed.match(/^(?:public\s+|private\s+|protected\s+|static\s+|readonly\s+|async\s+|get\s+|set\s+)*([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*(?::[^=]+)?\s*\{?$/),
+    trimmed.match(/^(?:public\s+|private\s+|protected\s+|static\s+|readonly\s+)*([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/),
+    trimmed.match(/^([A-Za-z_$][\w$]*)\s*:\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/),
+    trimmed.match(/^([A-Za-z_$][\w$]*)\s*:\s*(?:async\s*)?function\s*\(/)
+  ];
+  const methodMatch = methodPatterns.find(Boolean);
   if (methodMatch && !CONTROL_WORDS.has(methodMatch[1])) {
     return buildSymbol({ name: methodMatch[1], kind: 'method', line, startLine, lines, language: 'javascript' });
   }
