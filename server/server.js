@@ -4,13 +4,13 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { fileURLToPath } from 'node:url';
 import { scanProject } from './scanner.js';
-import { buildHeuristicReport } from './heuristic.js';
 import { readTextFileSafe } from './fs-utils.js';
 import { analyzeWithAI, askWithAI } from './ai.js';
 import { readConfig, writeConfig, redactConfig } from './config-store.js';
 import { buildContextPack } from './context-pack.js';
 import { normalizeReport, summarizeContextPack } from './report-normalizer.js';
 import { enrichContext } from './context-enrichment.js';
+import { deleteProjectReport, readProjectReport, writeProjectReport } from './report-store.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, '..');
@@ -67,7 +67,7 @@ export async function startServer({ projectDir, port, host }) {
   app.get('/api/project', async (_req, res, next) => {
     try {
       if (!cache.scan) cache.scan = await scanProject(projectDir);
-      if (!cache.report) cache.report = buildHeuristicReport(cache.scan);
+      if (!cache.report) cache.report = await readProjectReport(projectDir);
       res.json({ projectDir, scan: cache.scan, report: cache.report });
     } catch (error) { next(error); }
   });
@@ -75,7 +75,7 @@ export async function startServer({ projectDir, port, host }) {
   app.post('/api/rescan', async (_req, res, next) => {
     try {
       cache.scan = await scanProject(projectDir);
-      cache.report = buildHeuristicReport(cache.scan);
+      cache.report = await readProjectReport(projectDir);
       cache.contextPack = null;
       res.json({ projectDir, scan: cache.scan, report: cache.report });
     } catch (error) { next(error); }
@@ -84,10 +84,13 @@ export async function startServer({ projectDir, port, host }) {
   app.post('/api/analyze', async (req, res, next) => {
     try {
       if (!cache.scan) cache.scan = await scanProject(projectDir);
-      const config = { ...(await readConfig()), ...(req.body?.config || {}) };
+      const config = await mergeRuntimeConfig(req.body?.config || {});
+      cache.report = null;
+      await deleteProjectReport(projectDir);
       cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan });
       const report = await analyzeWithAI({ scan: cache.scan, chunks: cache.contextPack.chunks, contextPack: cache.contextPack, config });
       cache.report = normalizeReport(report, cache.contextPack);
+      await writeProjectReport(projectDir, cache.report);
       res.json({ report: cache.report, contextPack: summarizeContextPack(cache.contextPack) });
     } catch (error) { next(error); }
   });
@@ -142,7 +145,7 @@ export async function startServer({ projectDir, port, host }) {
     try {
       const { question, context = {}, config: bodyConfig = {} } = req.body || {};
       if (!question || !String(question).trim()) throw new Error('question is required');
-      const config = { ...(await readConfig()), ...bodyConfig };
+      const config = await mergeRuntimeConfig(bodyConfig);
       const enrichedContext = await enrichContext(projectDir, context);
       const answer = await askWithAI({ question: String(question), context: enrichedContext, config });
       res.json({ answer });
@@ -165,6 +168,15 @@ export async function startServer({ projectDir, port, host }) {
       resolve({ app, listener, port: listener.address().port });
     });
   });
+}
+
+async function mergeRuntimeConfig(bodyConfig) {
+  const current = await readConfig();
+  return {
+    ...current,
+    ...bodyConfig,
+    apiKey: bodyConfig.apiKey === '********' ? current.apiKey : typeof bodyConfig.apiKey === 'string' ? bodyConfig.apiKey : current.apiKey
+  };
 }
 
 async function testAiConnection(config) {

@@ -60,6 +60,7 @@ export default function App() {
     activePage={activePage}
     payload={workbench.payload}
     loading={workbench.loading}
+    hasAiAnalysis={workbench.report?.generatedBy === 'ai'}
     onNavigate={setActivePage}
     onAnalyze={workbench.analyze}
     onExportReport={exportContextPack}

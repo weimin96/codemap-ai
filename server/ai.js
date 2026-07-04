@@ -3,6 +3,8 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOllama } from 'ollama-ai-provider-v2';
 
+globalThis.AI_SDK_LOG_WARNINGS = false;
+
 export function modelFromConfig(config = {}) {
   const provider = config.provider || process.env.PFO_AI_PROVIDER || 'openai-compatible';
   const modelName = config.model || process.env.OPENAI_MODEL || process.env.PFO_AI_MODEL || defaultModel(provider);

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { Bot, Code2, Database, FileClock, Home, Map, RefreshCw, Route, Settings, Share2, ShieldAlert, SquareCode } from 'lucide-react';
+import { Bot, Boxes, BrainCircuit, Code2, Database, FileClock, FileText, Home, Map, RefreshCw, Route, Settings, Share2, ShieldAlert, Sparkles, SquareCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { StepProgress, type ProgressStep } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { ProjectPayload } from '@/types';
 
@@ -16,10 +17,18 @@ const navItems: Array<{ id: PageId; label: string; icon: typeof Home }> = [
   { id: 'history', label: '追问历史', icon: FileClock }
 ];
 
+const analyzeSteps: ProgressStep[] = [
+  { label: '扫描项目结构', description: '读取文件树、入口文件和符号索引', value: 20, icon: <Boxes size={15} /> },
+  { label: '整理上下文文件', description: '按优先级选择本次分析代码片段', value: 45, icon: <FileText size={15} /> },
+  { label: '调用 AI 分析', description: '生成模块、链路、风险和阅读路线', value: 70, icon: <BrainCircuit size={15} /> },
+  { label: '生成项目报告', description: '规范化结构并写入本地分析结果', value: 90, icon: <Sparkles size={15} /> }
+];
+
 export function AppShell({
   activePage,
   payload,
   loading,
+  hasAiAnalysis,
   children,
   onNavigate,
   onAnalyze,
@@ -29,6 +38,7 @@ export function AppShell({
   activePage: PageId;
   payload: ProjectPayload | null;
   loading: string;
+  hasAiAnalysis: boolean;
   children: ReactNode;
   onNavigate: (page: PageId) => void;
   onAnalyze: () => void;
@@ -76,12 +86,13 @@ export function AppShell({
           <span className="hidden xl:inline">最近分析时间：{payload?.scan?.repoMap?.generatedAt ? formatDate(payload.scan.repoMap.generatedAt) : '-'}</span>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={onAnalyze} disabled={!!loading}><RefreshCw size={15} />重新分析</Button>
+          <Button size="sm" variant="outline" onClick={onAnalyze} disabled={!!loading}>{hasAiAnalysis ? <RefreshCw size={15} /> : <Sparkles size={15} />}{hasAiAnalysis ? '重新分析' : '开始分析'}</Button>
           <Button size="sm" variant="outline" onClick={onExportReport}><Bot size={15} />导出报告</Button>
           <Button size="sm"><Share2 size={15} />分享项目</Button>
           <Button size="icon" variant="outline" onClick={onOpenSettings} aria-label="AI 设置" title="AI 设置"><Settings size={16} /></Button>
         </div>
       </header>
+      <StepProgress steps={analyzeSteps} active={loading === 'analyze'} />
       <main className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
         {children}
       </main>

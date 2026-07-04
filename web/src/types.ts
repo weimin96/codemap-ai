@@ -106,7 +106,7 @@ export interface ProjectPayload {
     repoMap?: RepoMap;
     summary: { stack: string[] };
   };
-  report: Report;
+  report: Report | null;
 }
 
 export interface Report {

@@ -61,7 +61,7 @@ export function FlowPage({ report, activeFlow, onSelectFlow, onOpenStep, onNavig
       </CardContent>
     </Card>
 
-    <RiskHint>链路由启发式和 AI 报告生成，仍需要结合断点、日志和测试验证真实运行顺序。</RiskHint>
+    <RiskHint>链路由 AI 报告生成，仍需要结合断点、日志和测试验证真实运行顺序。</RiskHint>
   </div>;
 }
 

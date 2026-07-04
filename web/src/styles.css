@@ -41,3 +41,8 @@ body {
 .mermaid svg { max-width: 100%; }
 
 .pfo-card-shadow { box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06); }
+
+@keyframes progress-shine {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(720%); }
+}

@@ -60,11 +60,7 @@ export function useWorkbenchData() {
   async function saveConfig() {
     setLoading('config');
     try {
-      const saved = await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      }).then((response) => response.json());
+      const saved = await persistConfig();
       setConfig({ ...config, ...saved });
     } finally {
       setLoading('');
@@ -74,8 +70,13 @@ export function useWorkbenchData() {
   async function analyze() {
     setLoading('analyze');
     setAnswer('');
+    setReport(null);
+    setActiveFlow(null);
+    setActiveRisk(null);
+    setPayload((current) => current ? { ...current, report: null } : current);
     try {
-      await saveConfig();
+      const saved = await persistConfig();
+      setConfig({ ...config, ...saved });
       const data = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,6 +89,14 @@ export function useWorkbenchData() {
     } finally {
       setLoading('');
     }
+  }
+
+  async function persistConfig() {
+    return await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    }).then((response) => response.json());
   }
 
   async function rescan() {

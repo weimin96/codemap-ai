@@ -21,7 +21,7 @@ export function OverviewPage({ payload, report, onNavigate }: { payload: Project
       <Card>
         <CardContent className="p-5">
           <SectionTitle title="系统架构图" description="系统整体分层与主要依赖关系。" action={<LinkButton onClick={() => onNavigate('flows')}>查看核心链路</LinkButton>} />
-          {report?.mermaid ? <MermaidPanel chart={report.mermaid} /> : <EmptyState text="暂无项目图。完成扫描或 AI 分析后显示。" />}
+          {report?.mermaid ? <MermaidPanel chart={report.mermaid} /> : <EmptyState text="暂无项目图。开始分析后显示。" />}
         </CardContent>
       </Card>
       <Card>
@@ -84,7 +84,7 @@ export function OverviewPage({ payload, report, onNavigate }: { payload: Project
       <CardContent className="flex items-center justify-between p-5">
         <div>
           <div className="font-semibold text-slate-950">可信度说明</div>
-          <div className="mt-1 text-sm text-muted-foreground">所有 AI / 启发式结论都应区分事实、推测和待验证状态。</div>
+          <div className="mt-1 text-sm text-muted-foreground">所有 AI 结论都应区分事实、推测和待验证状态。</div>
         </div>
         <div className="flex gap-2"><ConfidenceBadge confidence="fact" /><ConfidenceBadge confidence="guess" /><ConfidenceBadge confidence="unknown" /></div>
       </CardContent>
