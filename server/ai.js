@@ -1,4 +1,5 @@
 import { generateText } from 'ai';
+import { z } from 'zod';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOllama } from 'ollama-ai-provider-v2';
@@ -191,59 +192,40 @@ ${JSON.stringify(context, null, 2)}
 请基于上下文回答。`;
 }
 
+const ConfidenceSchema = z.enum(['fact', 'guess', 'unknown']);
+const CodeReferenceSchema = z.object({
+  path: z.string().min(1),
+  symbol: z.string().optional(),
+  startLine: z.number().int().positive().optional(),
+  endLine: z.number().int().positive().optional(),
+  reason: z.string().min(1),
+  confidence: ConfidenceSchema
+});
+
+const AskAnswerSchema = z.object({
+  conclusion: z.string().min(1),
+  evidence: z.array(CodeReferenceSchema),
+  risks: z.array(z.string()),
+  nextActions: z.array(z.string()),
+  relatedFiles: z.array(CodeReferenceSchema),
+  confidence: ConfidenceSchema,
+  markdown: z.string()
+});
+
 export function parseAskAnswer(text) {
-  try {
-    return normalizeAskAnswer(parseJsonResult(text));
-  } catch {
-    return normalizeAskAnswer({ markdown: text, conclusion: text.trim() ? text.trim().slice(0, 240) : '不确定' });
+  const parsed = parseJsonResult(text);
+  const checked = AskAnswerSchema.safeParse(parsed);
+  if (!checked.success) {
+    throw new Error(`AI ask response schema invalid: ${checked.error.message}`);
   }
-}
-
-function normalizeAskAnswer(answer) {
-  return {
-    conclusion: answer.conclusion || '不确定',
-    evidence: normalizeCodeReferences(answer.evidence),
-    risks: asStringArray(answer.risks),
-    nextActions: asStringArray(answer.nextActions),
-    relatedFiles: normalizeCodeReferences(answer.relatedFiles),
-    confidence: normalizeConfidence(answer.confidence),
-    markdown: answer.markdown || ''
-  };
-}
-
-function normalizeCodeReferences(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((item) => {
-    if (typeof item === 'string') return { path: item, reason: '相关文件', confidence: 'guess' };
-    return {
-      path: item.path || '',
-      symbol: item.symbol || '',
-      startLine: item.startLine,
-      endLine: item.endLine,
-      reason: item.reason || '相关文件',
-      confidence: normalizeConfidence(item.confidence)
-    };
-  }).filter((item) => item.path);
-}
-
-function asStringArray(value) {
-  if (Array.isArray(value)) return value.map((item) => String(item)).filter(Boolean);
-  if (typeof value === 'string' && value.trim()) return [value.trim()];
-  return [];
-}
-
-function normalizeConfidence(value) {
-  if (value === 'fact' || value === 'guess' || value === 'unknown') return value;
-  return 'unknown';
+  return checked.data;
 }
 
 export function parseJsonResult(text) {
   const cleaned = text.trim().replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```$/i, '').trim();
   try {
     return JSON.parse(cleaned);
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-    throw new Error('AI response is not valid JSON.');
+  } catch (error) {
+    throw new Error(`AI response is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

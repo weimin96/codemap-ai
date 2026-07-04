@@ -9,30 +9,25 @@ export async function buildContextPack({ root, scan, mode = 'overview', target =
   const contextMode = normalizeMode(mode);
   const selected = selectContextFiles(scan, { mode: contextMode, target, maxChars });
   const chunks = [];
-  const skippedFiles = [];
   let usedChars = 0;
 
   for (const file of selected) {
     const remaining = maxChars - usedChars;
     if (remaining <= 0) break;
     const limit = Math.min(MAX_CHARS_PER_FILE, remaining);
-    try {
-      const read = await readTextFileSafe(root, file.path, limit);
-      usedChars += read.content.length;
-      chunks.push({
-        path: file.path,
-        role: file.role,
-        priority: file.priority,
-        language: file.language,
-        score: file.contextScore,
-        mode: contextMode,
-        symbols: file.symbols || [],
-        content: read.content,
-        truncated: read.truncated
-      });
-    } catch (error) {
-      skippedFiles.push({ path: file.path, reason: error instanceof Error ? error.message : String(error) });
-    }
+    const read = await readContextFile(root, file.path, limit);
+    usedChars += read.content.length;
+    chunks.push({
+      path: file.path,
+      role: file.role,
+      priority: file.priority,
+      language: file.language,
+      score: file.contextScore,
+      mode: contextMode,
+      symbols: file.symbols || [],
+      content: read.content,
+      truncated: read.truncated
+    });
   }
 
   return {
@@ -40,11 +35,18 @@ export async function buildContextPack({ root, scan, mode = 'overview', target =
     mode: contextMode,
     target,
     budget: { maxChars, usedChars },
-    skippedFiles,
     files: chunks.map(({ content, ...file }) => ({ ...file, charCount: content.length })),
     chunks,
-    markdown: buildContextMarkdown(scan, chunks, { maxChars, usedChars }, { mode: contextMode, target, skippedFiles })
+    markdown: buildContextMarkdown(scan, chunks, { maxChars, usedChars }, { mode: contextMode, target })
   };
+}
+
+async function readContextFile(root, path, limit) {
+  try {
+    return await readTextFileSafe(root, path, limit);
+  } catch (error) {
+    throw new Error(`Failed to read context file ${path}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 export function selectContextFiles(scan, options = DEFAULT_MAX_CHARS) {
@@ -74,12 +76,25 @@ function normalizeSelectOptions(options) {
   return {
     mode: normalizeMode(options.mode),
     target: options.target || {},
-    maxChars: Number(options.maxChars) || DEFAULT_MAX_CHARS
+    maxChars: normalizeMaxChars(options.maxChars)
   };
 }
 
 function normalizeMode(mode) {
-  return CONTEXT_MODES.has(mode) ? mode : 'overview';
+  const value = mode ?? 'overview';
+  if (!CONTEXT_MODES.has(value)) {
+    throw new Error(`Invalid context pack mode: ${value}`);
+  }
+  return value;
+}
+
+function normalizeMaxChars(maxChars) {
+  if (maxChars === undefined || maxChars === null) return DEFAULT_MAX_CHARS;
+  const value = Number(maxChars);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`Invalid context pack maxChars: ${maxChars}`);
+  }
+  return value;
 }
 
 function scoreContextFile(file, mode = 'overview', target = {}) {
@@ -198,13 +213,6 @@ function buildContextMarkdown(scan, chunks, budget, metadata) {
       '```',
       ''
     );
-  }
-
-  if (metadata.skippedFiles.length) {
-    lines.push('## Skipped Files', '');
-    for (const file of metadata.skippedFiles) {
-      lines.push(`- ${file.path}: ${file.reason}`);
-    }
   }
 
   return lines.join('\n');
