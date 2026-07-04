@@ -16,7 +16,7 @@
 
 当前代码版本：`0.5.1`。
 
-已完成能力覆盖 v0.1-v0.5，并继续补充项目理解工作台能力：顶部导航、CodeAtlas 品牌字标和 logo、报告质量信息、证据索引、模块详情、链路剧本、风险详情、Context Pack mode、结构化追问答案、明确失败策略、JS/TS Code Graph、图谱 Inspector、AI JSON repair、人工确认状态字段、测试脚本、CI 和接管文档导出。
+已完成能力覆盖 v0.1-v0.5，并继续补充项目理解工作台能力：顶部导航、CodeAtlas 品牌字标和 logo、报告质量信息、证据索引、模块详情、链路剧本、风险详情、Graph-aware Context Pack、结构化追问答案、明确失败策略、JS/TS Code Graph、Cytoscape 图谱、图谱 Inspector、AI Explain cache、AI JSON repair、人工确认状态字段、测试脚本、CI 和 zip 接管文档导出。
 
 ## 品牌资源
 
@@ -142,7 +142,7 @@ API Key: 留空
 - 核心链路：查看链路图和步骤，进入链路详情查看时序图、代码剧本、数据读写、外部调用、异常路径、推荐断点、风险和证据。
 - 数据模型：查看实体、关系、状态机、关键字段和数据风险。
 - 风险雷达：查看风险分布，选择风险后查看影响范围、验证步骤、建议测试和代码证据。
-- 代码图谱：查看 JS/TS 文件、目录、符号、导入和近似调用关系，支持节点搜索、直接关系 Inspector、解析告警和 Why Connected 最短路径。
+- 代码图谱：查看 JS/TS 文件、目录、符号、导入和近似调用关系，支持范围切换、边过滤、按文件/函数/模块/warning 搜索、warnings-only、邻居高亮、2-hop 影响范围、业务回链和 Why Connected 最短路径。
 - 代码浏览器：打开证据文件、定位符号和行号，结合右侧追问面板分析代码。
 - 追问历史 / 阅读路线：查看报告生成的阅读计划。
 
@@ -154,10 +154,10 @@ API Key: 留空
 - 构建 JS/TS Code Graph，输出 nodes、edges、warnings，边类型包含 `contains`、`defines`、`imports`、`calls`。
 - Code Graph 使用 TypeScript AST 提取 JS/TS imports、exports、require、动态 import 和 CallExpression，再进行本地符号匹配。
 - 图谱页支持 Cytoscape 交互画布和 Inspector：概览、解释、为什么有关、告警、代码。
-- Inspector 解释 tab 使用 600ms 延迟触发、切换取消和前端 session cache。
+- Inspector 解释 tab 使用 600ms 延迟触发、切换取消和前端 session cache；服务端会先查 SQLite explain_cache，未命中才请求 AI，成功后写入缓存。
 - Why Connected 通过最短路径解释两个节点为什么有关。
 - 构建 Context Pack，按字符预算选择 AI 分析上下文，并支持导出 `project-context.md`。
-- Context Pack 支持 `overview`、`module`、`flow`、`risk`、`question` mode，并按目标模块、链路、风险、路径和符号加权选择上下文。
+- Context Pack 支持 `overview`、`module`、`flow`、`risk`、`question` mode，并按目标模块、链路、风险、路径、符号和 Code Graph 邻居加权选择上下文。
 - AI 生成项目概览、分析质量、入口、模块、模块能力、核心链路、数据模型、风险、阅读路线、证据索引和 Mermaid 图。
 - AI 分析 prompt 按项目总览、模块分析、链路分析、风险与待验证问题四阶段组织。
 - AI 返回非法 JSON 时会用 repair prompt 重试一次；重试后仍失败才显示错误。
@@ -172,8 +172,8 @@ API Key: 留空
 - 追问历史会按 scope 归档到浏览器 localStorage，包括项目、链路、风险、文件、符号和选区。
 - 在支持 `node:sqlite` 的 Node 运行时，会镜像写入本地 SQLite：scan runs、reports、chat threads、verified conclusions、code graph、explain cache 表。
 - 支持导出 `repo-map.json`、`project-context.md` 和 `/api/onboarding-docs` 接管文档集。
-- 系统顶部“接管文档”按钮会下载合并后的 `codeatlas-onboarding-docs.md`。
-- `/api/onboarding-docs` 返回 `PROJECT_MAP.md`、`MODULES.md`、`CORE_FLOWS.md`、`DATA_MODEL.md`、`RISK_REGISTER.md`、`READING_PLAN.md`、`QUESTIONS.md`。
+- 系统顶部“接管文档”按钮会下载 `codeatlas-onboarding-docs.zip` 多文件文档集。
+- `/api/onboarding-docs` 返回 `PROJECT_MAP.md`、`MODULES.md`、`CORE_FLOWS.md`、`DATA_MODEL.md`、`RISK_REGISTER.md`、`READING_PLAN.md`、`QUESTIONS.md`、`CODE_GRAPH_SUMMARY.md`、`ANALYSIS_QUALITY.md`。
 - 支持 OpenAI-compatible、OpenAI、OpenRouter、DeepSeek、Kimi、智谱、SiliconFlow、Ollama 和 Auto fallback。
 - Auto fallback 会按 `ollama,openai-compatible,openrouter,openai` 顺序尝试；可通过 `PFO_AI_PROVIDER_PRIORITY` 覆盖。
 
@@ -200,10 +200,10 @@ curl http://127.0.0.1:7890/api/context-pack?format=markdown
 # 接管文档集 API
 curl http://127.0.0.1:7890/api/onboarding-docs
 
-# 或在系统顶部点击“接管文档”，下载合并后的 Markdown 文件
+# 或在系统顶部点击“接管文档”，下载 codeatlas-onboarding-docs.zip
 ```
 
-接管文档集当前以 JSON 返回多个 Markdown 文件名和内容，适合后续接入前端批量下载或本地写盘。
+接管文档集 API 以 JSON 返回多个 Markdown 文件名和内容；前端会打包为 zip，适合放入项目仓库或团队交接目录。
 
 ## 设计取向
 
@@ -211,7 +211,7 @@ curl http://127.0.0.1:7890/api/onboarding-docs
 
 1. 先生成第一版地图。
 2. 再进入模块或链路详情，查看职责、剧本和证据。
-3. 然后通过代码图谱检查真实导入、近似调用关系和解析告警。
+3. 然后通过代码图谱检查真实导入、近似调用关系、范围过滤、邻居高亮、业务回链和解析告警。
 4. 接着围绕当前文件、函数、链路或风险追问。
 5. 最后由人基于代码、断点、日志和测试验证。
 
@@ -229,7 +229,7 @@ API Key 优先可通过环境变量提供。通过页面保存时，配置写入
 - `calls` 已改为 TypeScript AST CallExpression 提取，但目标解析仍基于名称匹配，无法覆盖动态调用、别名、重导出和复杂类型推断。
 - 核心链路仍是候选链路，不是完整精确调用图。
 - Context Pack 使用字符预算近似 token 预算。
-- Context Pack mode 是启发式加权，不是调用图或本地 RAG。
+- Graph-aware Context Pack 会使用 Code Graph 邻居和 warning 加权，但仍不是完整本地 RAG 或类型系统级调用图。
 - 模块、链路、风险和数据实体的人工确认状态已支持 UI 更新并写回本地报告。
 - SQLite 镜像持久化依赖运行时支持 `node:sqlite`；Node 20 环境会自动跳过，不阻断主流程。
 - `/api/onboarding-docs` 已提供前端合并 Markdown 下载；暂未提供 zip 批量下载。
@@ -239,4 +239,4 @@ API Key 优先可通过环境变量提供。通过页面保存时，配置写入
 - 多模型 fallback 已支持 `provider=auto`，但每个 provider 的独立 API Key / model UI 尚未展开。
 - 暂未支持多人协作或远程仓库托管。
 
-下一版建议：品牌命名统一、图谱持久化、AI Explain API、Playwright 关键路径测试、SQLite 接管知识库。
+下一版建议：npm 包名迁移、TypeScript 类型系统级调用解析、更完整 Playwright 关键路径测试、SQLite 查询 UI、多人协作。

@@ -17,7 +17,7 @@
 | 25 | complete | Why Connected 业务入口：模块/链路/风险/代码浏览器解释入口 | typecheck、build、lint |
 | 26 | complete | Graph-aware Context Pack：flow/risk/question 引入 graph 邻居和路径 | test、node --check、lint |
 | 27 | complete | 多文件 zip 文档集：新增 CODE_GRAPH_SUMMARY、ANALYSIS_QUALITY，前端 zip 下载 | test、typecheck、build、lint |
-| 28 | pending | README 同步与全量验证 | lint、test、e2e、build、dry-run |
+| 28 | complete | README 同步与全量验证 | lint、test、e2e、build、dry-run |
 
 ## 风险
 - Cytoscape 大图性能需要限制节点/边数量。

@@ -15,3 +15,5 @@
 - 阶段 26 验证通过：node --check server/context-pack.js、node --check server/context-enrichment.js、node --check server/server.js、npm run test、npm run lint。
 - 阶段 27 完成：接管文档集新增 CODE_GRAPH_SUMMARY.md 与 ANALYSIS_QUALITY.md；/api/onboarding-docs 会包含图谱摘要；前端“接管文档”改为下载 codeatlas-onboarding-docs.zip。
 - 阶段 27 验证通过：node --check server/document-exporter.js、node --check server/server.js、npm run test、tsc --noEmit、vite build、npm run lint。
+- 阶段 28 完成：README 同步图谱可用性收口、AI Explain cache、Graph-aware Context Pack、业务 Why Connected 和 zip 文档集。
+- 阶段 28 验证通过：npm run lint、npm run test、npm run test:e2e、tsc --noEmit、vite build、npm run release:dry-run。当前 19 个单元测试通过，1 个 e2e 通过。
