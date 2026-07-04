@@ -153,9 +153,11 @@ codemap-ai /path/to/your/project --no-open
 ```bash
 codemap-ai pack /path/to/your/project --format markdown -o context.md
 codemap-ai pack /path/to/your/project --format json -o context.json
+codemap-ai pack /path/to/your/project --include src/** --ignore **/*.test.ts -o context.md
+git ls-files | codemap-ai pack /path/to/your/project --stdin -o context.md
 ```
 
-`pack` 会输出 Repo Map、Graph-aware Context Pack、已选文件片段和跳过原因，适合与其他 CLI 或 AI 工具串联。
+`pack` 会输出 Repo Map、Graph-aware Context Pack、已选文件片段和跳过原因，适合与其他 CLI 或 AI 工具串联。`--include`、`--ignore` 和 `--stdin` 只影响 pack 输出，不改变 Web UI 的项目扫描。
 
 ## AI providers
 
