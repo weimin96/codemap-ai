@@ -1,7 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AiConfig, AskAnswer, AskThreadEntry, CodeGraph, CoreFlow, FilePayload, ProjectPayload, Report, ScanFile, SymbolInfo, VerificationStatus } from '@/types';
 
 const ASK_THREADS_STORAGE_KEY = 'codemap-ai.askThreads.v1';
+
+export interface AnalysisProgress {
+  phase: string;
+  label: string;
+  value: number;
+}
 
 const defaultConfig: AiConfig = {
   provider: 'openai-compatible',
@@ -26,6 +32,8 @@ export function useWorkbenchData() {
   const [results, setResults] = useState<ScanFile[]>([]);
   const [codeGraph, setCodeGraph] = useState<CodeGraph | null>(null);
   const [askThreads, setAskThreads] = useState<AskThreadEntry[]>(() => readAskThreads());
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null);
+  const analyzeAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     void initialize();
@@ -79,25 +87,35 @@ export function useWorkbenchData() {
 
   async function analyze() {
     setLoading('analyze');
+    setAnalysisProgress({ phase: 'config', label: '保存 AI 配置', value: 5 });
     setAnswer('');
     setReport(null);
     setActiveFlow(null);
     setActiveRisk(null);
     setPayload((current) => current ? { ...current, report: null } : current);
+    const controller = new AbortController();
+    analyzeAbortRef.current = controller;
     try {
       const saved = await persistConfig();
       setConfig({ ...config, ...saved });
-      const data = await requestJson<{ report: Report }>('/api/analyze', {
+      const data = await readAnalyzeStream('/api/analyze/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config })
-      });
+        body: JSON.stringify({ config }),
+        signal: controller.signal
+      }, setAnalysisProgress);
       setReport(data.report);
     } catch (error) {
-      setAnswer(`分析失败：${formatError(error)}`);
+      setAnswer(controller.signal.aborted ? '分析已取消。' : `分析失败：${formatError(error)}`);
     } finally {
+      if (analyzeAbortRef.current === controller) analyzeAbortRef.current = null;
+      setAnalysisProgress(null);
       setLoading('');
     }
+  }
+
+  function cancelAnalyze() {
+    analyzeAbortRef.current?.abort();
   }
 
   async function persistConfig() {
@@ -232,17 +250,52 @@ export function useWorkbenchData() {
     results,
     codeGraph,
     askThreads,
+    analysisProgress,
     files,
     currentFileSymbols,
     openFile,
     saveConfig,
     analyze,
+    cancelAnalyze,
     rescan,
     runSearch,
     updateVerification,
     loadCodeGraph,
     ask
   };
+}
+
+async function readAnalyzeStream(url: string, init: RequestInit, onProgress: (progress: AnalysisProgress) => void): Promise<{ report: Report }> {
+  const response = await fetch(url, init);
+  if (!response.ok || !response.body) throw new Error(`请求失败：${response.status} ${response.statusText}`);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let donePayload: { report: Report } | null = null;
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() || '';
+    for (const part of parts) {
+      const event = parseSseEvent(part);
+      if (!event) continue;
+      if (event.event === 'progress') onProgress(event.data as AnalysisProgress);
+      if (event.event === 'done') donePayload = event.data as { report: Report };
+      if (event.event === 'error') throw new Error(String((event.data as { error?: string })?.error || '分析失败'));
+    }
+  }
+  if (!donePayload) throw new Error('分析流未返回完成事件。');
+  return donePayload;
+}
+
+function parseSseEvent(raw: string): { event: string; data: unknown } | null {
+  const event = raw.split('\n').find((line) => line.startsWith('event:'))?.slice(6).trim() || 'message';
+  const dataLines = raw.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trimStart());
+  if (!dataLines.length) return null;
+  return { event, data: JSON.parse(dataLines.join('\n')) };
 }
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {

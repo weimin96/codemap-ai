@@ -54,15 +54,16 @@ function defaultBaseURL(provider) {
   return 'https://api.openai.com/v1';
 }
 
-export async function analyzeWithAI({ scan, chunks, contextPack, config }) {
+export async function analyzeWithAI({ scan, chunks, contextPack, config, signal }) {
   const prompt = buildAnalyzePrompt(scan, chunks, contextPack);
   const result = await generateTextWithFallback({
     config,
     system: SYSTEM_PROMPT,
     prompt,
-    temperature: 0.15
+    temperature: 0.15,
+    signal
   });
-  const parsed = await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema: 'project analysis report JSON', timeoutMs: result.timeoutMs });
+  const parsed = await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema: 'project analysis report JSON', timeoutMs: result.timeoutMs, signal });
   return validateAnalysisReport(parsed);
 }
 
@@ -78,14 +79,14 @@ export async function askWithAI({ question, context, config }) {
   return validateAskAnswer(parsed);
 }
 
-async function generateTextWithFallback({ config, system, prompt, temperature }) {
+async function generateTextWithFallback({ config, system, prompt, temperature, signal }) {
   const candidates = modelConfigCandidates(config);
   const timeoutMs = resolveAiTimeoutMs(config);
   const errors = [];
   for (const candidate of candidates) {
     const model = modelFromConfig(candidate);
     try {
-      const result = await generateTextWithTimeout({ model, system, prompt, temperature }, timeoutMs);
+      const result = await generateTextWithTimeout({ model, system, prompt, temperature }, timeoutMs, signal);
       return { ...result, model, provider: candidate.provider, timeoutMs };
     } catch (error) {
       errors.push(`${candidate.provider}: ${error instanceof Error ? error.message : String(error)}`);
@@ -94,8 +95,11 @@ async function generateTextWithFallback({ config, system, prompt, temperature })
   throw new Error(`All AI providers failed: ${errors.join(' | ')}`);
 }
 
-async function generateTextWithTimeout(args, timeoutMs) {
+async function generateTextWithTimeout(args, timeoutMs, externalSignal) {
   const controller = new AbortController();
+  const onAbort = () => controller.abort();
+  if (externalSignal?.aborted) controller.abort();
+  externalSignal?.addEventListener?.('abort', onAbort, { once: true });
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await generateText({ ...args, abortSignal: controller.signal });
@@ -104,6 +108,7 @@ async function generateTextWithTimeout(args, timeoutMs) {
     throw error;
   } finally {
     clearTimeout(timeout);
+    externalSignal?.removeEventListener?.('abort', onAbort);
   }
 }
 
@@ -339,7 +344,7 @@ export function validateAskAnswer(value) {
   return checked.data;
 }
 
-async function parseJsonResultWithRepair({ text, model, expectedSchema, timeoutMs = DEFAULT_AI_TIMEOUT_MS }) {
+async function parseJsonResultWithRepair({ text, model, expectedSchema, timeoutMs = DEFAULT_AI_TIMEOUT_MS, signal }) {
   try {
     return parseJsonResult(text);
   } catch (firstError) {
@@ -348,7 +353,7 @@ async function parseJsonResultWithRepair({ text, model, expectedSchema, timeoutM
       system: JSON_REPAIR_SYSTEM_PROMPT,
       prompt: buildJsonRepairPrompt({ text, expectedSchema, error: firstError }),
       temperature: 0
-    }, timeoutMs);
+    }, timeoutMs, signal);
     try {
       return parseJsonResult(repair.text);
     } catch (repairError) {

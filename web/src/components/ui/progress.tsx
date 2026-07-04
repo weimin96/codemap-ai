@@ -11,10 +11,12 @@ export interface ProgressStep {
 export function StepProgress({
   steps,
   active,
+  current,
   className
 }: {
   steps: ProgressStep[];
   active: boolean;
+  current?: { label: string; value: number };
   className?: string;
 }) {
   const [stepIndex, setStepIndex] = useState(0);
@@ -32,20 +34,20 @@ export function StepProgress({
 
   if (!active || !steps.length) return null;
 
-  const current = steps[stepIndex] || steps[0];
+  const currentStep = current ? { ...steps[stepIndex], label: current.label, value: current.value } : steps[stepIndex] || steps[0];
 
   return <div className={cn('border-b bg-white px-6 py-4 shadow-[0_1px_0_rgba(15,23,42,0.04)]', className)}>
     <div className="mb-3 flex items-center justify-between gap-4">
       <div className="min-w-0">
-        <div className="text-sm font-semibold text-slate-950">{current.label}</div>
-        <div className="mt-0.5 truncate text-xs text-slate-500">{current.description}</div>
+        <div className="text-sm font-semibold text-slate-950">{currentStep.label}</div>
+        <div className="mt-0.5 truncate text-xs text-slate-500">{currentStep.description}</div>
       </div>
-      <div className="text-xs font-semibold tabular-nums text-blue-700">{current.value}%</div>
+      <div className="text-xs font-semibold tabular-nums text-blue-700">{currentStep.value}%</div>
     </div>
     <div className="relative h-2 overflow-hidden rounded-full bg-slate-100">
       <div
         className="h-full rounded-full bg-blue-600 transition-all duration-700 ease-out"
-        style={{ width: `${current.value}%` }}
+        style={{ width: `${currentStep.value}%` }}
       />
       <div className="absolute inset-y-0 w-24 animate-[progress-shine_1.7s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/55 to-transparent" />
     </div>

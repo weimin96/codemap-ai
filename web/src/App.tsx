@@ -112,6 +112,8 @@ export default function App() {
     hasAiAnalysis={workbench.report?.generatedBy === 'ai'}
     onNavigate={setActivePage}
     onAnalyze={workbench.analyze}
+    onCancelAnalyze={workbench.cancelAnalyze}
+    analysisProgress={workbench.analysisProgress}
     onExportReport={exportContextPack}
     onExportDocs={() => { void exportOnboardingDocs(); }}
     onOpenSettings={() => setSettingsOpen(true)}

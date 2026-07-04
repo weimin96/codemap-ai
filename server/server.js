@@ -102,24 +102,38 @@ export async function startServer({ projectDir, port, host, serveWeb = true, acc
 
   app.post('/api/analyze', async (req, res, next) => {
     try {
-      if (!cache.scan) {
-        cache.scan = await scanProject(projectDir);
-        await recordScanRun(projectDir, cache.scan);
-      }
-      const config = await mergeRuntimeConfig(req.body?.config || {});
-      cache.report = null;
-      await deleteProjectReport(projectDir);
-      if (!cache.codeGraph) {
-        cache.codeGraph = await buildCodeGraph({ root: projectDir, scan: cache.scan });
-        await recordCodeGraph(projectDir, cache.codeGraph);
-      }
-      cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan, codeGraph: cache.codeGraph });
-      const report = await analyzeWithAI({ scan: cache.scan, chunks: cache.contextPack.chunks, contextPack: cache.contextPack, config });
-      cache.report = normalizeReport(report, cache.contextPack, cache.scan);
-      await writeProjectReport(projectDir, cache.report);
-      await recordReport(projectDir, cache.report);
-      res.json({ report: cache.report, contextPack: summarizeContextPack(cache.contextPack) });
+      const result = await runAnalysisJob({ projectDir, cache, configInput: req.body?.config || {} });
+      res.json(result);
     } catch (error) { next(error); }
+  });
+
+  app.post('/api/analyze/stream', async (req, res) => {
+    const controller = new AbortController();
+    req.on('close', () => controller.abort());
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive'
+    });
+    const emit = (event, data) => {
+      if (res.destroyed) return;
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+    try {
+      const result = await runAnalysisJob({
+        projectDir,
+        cache,
+        configInput: req.body?.config || {},
+        signal: controller.signal,
+        onProgress: (data) => emit('progress', data)
+      });
+      emit('done', result);
+    } catch (error) {
+      if (!controller.signal.aborted) emit('error', { error: error instanceof Error ? error.message : String(error) });
+    } finally {
+      res.end();
+    }
   });
 
   app.get('/api/repo-map', async (req, res, next) => {
@@ -272,6 +286,43 @@ export async function startServer({ projectDir, port, host, serveWeb = true, acc
       resolve({ app, listener, port: listener.address().port });
     });
   });
+}
+
+async function runAnalysisJob({ projectDir, cache, configInput, signal, onProgress = () => {} }) {
+  const assertActive = () => {
+    if (signal?.aborted) throw new Error('Analysis was cancelled.');
+  };
+  onProgress({ phase: 'scan', label: '扫描项目结构', value: 15 });
+  if (!cache.scan) {
+    cache.scan = await scanProject(projectDir);
+    await recordScanRun(projectDir, cache.scan);
+  }
+  assertActive();
+  const config = await mergeRuntimeConfig(configInput || {});
+  cache.report = null;
+  await deleteProjectReport(projectDir);
+
+  onProgress({ phase: 'graph', label: '构建代码图谱', value: 35 });
+  if (!cache.codeGraph) {
+    cache.codeGraph = await buildCodeGraph({ root: projectDir, scan: cache.scan });
+    await recordCodeGraph(projectDir, cache.codeGraph);
+  }
+  assertActive();
+
+  onProgress({ phase: 'context', label: '整理上下文文件', value: 50 });
+  cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan, codeGraph: cache.codeGraph });
+  assertActive();
+
+  onProgress({ phase: 'ai', label: '调用 AI 分析', value: 70 });
+  const report = await analyzeWithAI({ scan: cache.scan, chunks: cache.contextPack.chunks, contextPack: cache.contextPack, config, signal });
+  assertActive();
+
+  onProgress({ phase: 'normalize', label: '生成项目报告', value: 90 });
+  cache.report = normalizeReport(report, cache.contextPack, cache.scan);
+  await writeProjectReport(projectDir, cache.report);
+  await recordReport(projectDir, cache.report);
+  onProgress({ phase: 'done', label: '完成', value: 100 });
+  return { report: cache.report, contextPack: summarizeContextPack(cache.contextPack) };
 }
 
 function installAccessTokenGuard(app, accessToken) {

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { StepProgress, type ProgressStep } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import type { ProjectPayload } from '@/types';
+import type { AnalysisProgress } from '@/hooks/useWorkbenchData';
 
 export type PageId = 'overview' | 'modules' | 'module-detail' | 'flows' | 'flow-detail' | 'data' | 'risks' | 'graph' | 'code' | 'history';
 
@@ -34,6 +35,8 @@ export function AppShell({
   children,
   onNavigate,
   onAnalyze,
+  onCancelAnalyze,
+  analysisProgress,
   onExportReport,
   onExportDocs,
   onOpenSettings
@@ -45,6 +48,8 @@ export function AppShell({
   children: ReactNode;
   onNavigate: (page: PageId) => void;
   onAnalyze: () => void;
+  onCancelAnalyze: () => void;
+  analysisProgress: AnalysisProgress | null;
   onExportReport: () => void;
   onExportDocs: () => void;
   onOpenSettings: () => void;
@@ -65,7 +70,9 @@ export function AppShell({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <Button size="sm" variant="outline" onClick={onAnalyze} disabled={!!loading}>{hasAiAnalysis ? <RefreshCw size={15} /> : <Sparkles size={15} />}{hasAiAnalysis ? '重新分析' : '开始分析'}</Button>
+        {loading === 'analyze'
+          ? <Button size="sm" variant="outline" onClick={onCancelAnalyze}><RefreshCw size={15} />取消分析</Button>
+          : <Button size="sm" variant="outline" onClick={onAnalyze} disabled={!!loading}>{hasAiAnalysis ? <RefreshCw size={15} /> : <Sparkles size={15} />}{hasAiAnalysis ? '重新分析' : '开始分析'}</Button>}
         <Button size="sm" variant="outline" onClick={onExportReport}><Bot size={15} />导出上下文</Button>
         <Button size="sm" variant="outline" onClick={onExportDocs}><FileText size={15} />接管文档</Button>
         <Button size="icon" variant="outline" onClick={onOpenSettings} aria-label="AI 设置" title="AI 设置"><Settings size={16} /></Button>
@@ -89,7 +96,7 @@ export function AppShell({
       })}
     </nav>
 
-    <StepProgress steps={analyzeSteps} active={loading === 'analyze'} />
+    <StepProgress steps={analyzeSteps} active={loading === 'analyze'} current={analysisProgress || undefined} />
     <main className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
       {children}
     </main>
