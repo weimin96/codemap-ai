@@ -20,6 +20,7 @@ export async function buildCodeGraph({ root, scan }) {
   const symbolById = new Map();
   const symbolsByName = new Map();
   const importResolver = await buildImportResolver(root, filePathSet);
+  const importBindingsByFile = new Map();
 
   for (const file of files) addDirectoryChain(file.path, nodes, edges, seenNodes, seenEdges);
 
@@ -47,6 +48,7 @@ export async function buildCodeGraph({ root, scan }) {
     const sourceFile = parseSourceFile(file.path, read.content, warnings);
     if (!sourceFile) continue;
     const imports = extractImports(sourceFile);
+    const importBindings = new Map();
     for (const item of imports) {
       const targetPath = importResolver(file.path, item.specifier);
       if (!targetPath) {
@@ -54,14 +56,19 @@ export async function buildCodeGraph({ root, scan }) {
         continue;
       }
       addEdge(edges, seenEdges, fileId(file.path), fileId(targetPath), 'imports', item.line);
+      for (const binding of item.bindings || []) {
+        importBindings.set(binding.localName, { targetPath, importedName: binding.importedName });
+      }
     }
+
+    importBindingsByFile.set(file.path, importBindings);
 
     const fileSymbols = file.symbols || [];
     for (const symbol of fileSymbols) {
       const source = symbolById.get(symbol.id);
       if (!source) continue;
       for (const call of extractCalls(sourceFile, symbol.startLine, symbol.endLine)) {
-        const target = resolveCallTarget(call.name, file.path, symbol.id, symbolById, symbolsByName);
+        const target = resolveCallTarget(call.name, file.path, symbol.id, symbolById, symbolsByName, importBindingsByFile.get(file.path));
         if (!target) {
           pushWarning(warnings, { path: file.path, kind: 'unresolved_call', message: `无法解析调用：${call.name}` });
           continue;
@@ -204,8 +211,11 @@ function scriptKindForPath(filePath) {
 function extractImports(sourceFile) {
   const imports = [];
   walk(sourceFile, (node) => {
-    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
-      imports.push({ specifier: node.moduleSpecifier.text, line: nodeLine(sourceFile, node) });
+    if (ts.isImportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+      imports.push({ specifier: node.moduleSpecifier.text, line: nodeLine(sourceFile, node), bindings: extractImportBindings(node) });
+    }
+    if (ts.isExportDeclaration(node) && node.moduleSpecifier && ts.isStringLiteral(node.moduleSpecifier)) {
+      imports.push({ specifier: node.moduleSpecifier.text, line: nodeLine(sourceFile, node), bindings: [] });
     }
     if (ts.isCallExpression(node)) {
       if (ts.isIdentifier(node.expression) && node.expression.text === 'require') {
@@ -219,6 +229,23 @@ function extractImports(sourceFile) {
     }
   });
   return imports;
+}
+
+function extractImportBindings(node) {
+  const clause = node.importClause;
+  if (!clause) return [];
+  const bindings = [];
+  if (clause.name) bindings.push({ localName: clause.name.text, importedName: 'default' });
+  const namedBindings = clause.namedBindings;
+  if (namedBindings && ts.isNamedImports(namedBindings)) {
+    for (const element of namedBindings.elements) {
+      bindings.push({
+        localName: element.name.text,
+        importedName: element.propertyName ? element.propertyName.text : element.name.text
+      });
+    }
+  }
+  return bindings;
 }
 
 async function buildImportResolver(root, filePathSet) {
@@ -308,7 +335,13 @@ function nodeLine(sourceFile, node) {
   return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
 }
 
-function resolveCallTarget(name, fromPath, sourceId, symbolById, symbolsByName) {
+function resolveCallTarget(name, fromPath, sourceId, symbolById, symbolsByName, importBindings = new Map()) {
+  const imported = importBindings.get(name);
+  if (imported) {
+    const importedCandidates = (symbolsByName.get(imported.importedName) || [])
+      .filter((node) => node.path === imported.targetPath && node.id !== sourceId);
+    if (importedCandidates.length === 1) return { node: importedCandidates[0], confidence: 'fact' };
+  }
   const candidates = symbolsByName.get(name) || [];
   const local = candidates.find((node) => node.path === fromPath && node.id !== sourceId);
   if (local) return { node: local, confidence: 'fact' };

@@ -39,7 +39,7 @@ test('buildCodeGraph extracts file, symbol, import and call edges', async () => 
   assert.ok(graph.nodes.some((node) => node.id === 'file:src/index.ts'));
   assert.ok(graph.nodes.some((node) => node.name === 'start' && node.type === 'function'));
   assert.ok(graph.edges.some((edge) => edge.source === 'file:src/index.ts' && edge.target === 'file:src/order.ts' && edge.type === 'imports' && edge.confidence === 'fact'));
-  assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes(':runOrder') && edge.confidence === 'guess'));
+  assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes(':runOrder') && edge.confidence === 'fact'));
   assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':runOrder') && edge.target.includes(':persistOrder') && edge.confidence === 'fact'));
 });
 
@@ -52,6 +52,19 @@ test('buildCodeGraph preserves type and constant symbol node kinds', async () =>
 
   assert.ok(graph.nodes.some((node) => node.name === 'UserId' && node.type === 'type'));
   assert.ok(graph.nodes.some((node) => node.name === 'ORDER_KIND' && node.type === 'constant'));
+});
+
+test('buildCodeGraph resolves aliased named imports to fact call edges', async () => {
+  const fixture = await createFixture({
+    'src/index.ts': "import { runOrder as run } from './order';\nexport function start() {\n  run();\n}\n",
+    'src/order.ts': "export function runOrder() {\n  return true;\n}\n",
+    'src/other.ts': "export function runOrder() {\n  return false;\n}\n"
+  });
+
+  const graph = await buildCodeGraph(fixture);
+
+  assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes('src/order.ts') && edge.target.includes(':runOrder') && edge.confidence === 'fact'));
+  assert.equal(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes('src/other.ts')), false);
 });
 
 test('buildCodeGraph resolves tsconfig path aliases', async () => {
