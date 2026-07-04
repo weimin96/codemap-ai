@@ -8,15 +8,23 @@
 
 # CodeAtlas
 
+<p align="center">
+  <a href="https://www.npmjs.com/package/@codemapai/codemap-ai"><img alt="npm version" src="https://img.shields.io/npm/v/@codemapai/codemap-ai?label=npm"></a>
+  <a href="https://www.npmjs.com/package/@codemapai/codemap-ai"><img alt="npm downloads" src="https://img.shields.io/npm/dm/@codemapai/codemap-ai"></a>
+  <a href="https://github.com/weimin96/codemap-ai/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/weimin96/codemap-ai/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="./LICENSE"><img alt="License" src="https://img.shields.io/npm/l/@codemapai/codemap-ai"></a>
+  <a href="https://nodejs.org"><img alt="Node.js" src="https://img.shields.io/node/v/@codemapai/codemap-ai"></a>
+</p>
+
 本地项目快速接管工作台。通过 npm 安装后，用命令指定一个本地项目目录，在浏览器里查看项目总览、模块地图、模块详情、核心链路、链路详情、数据模型、风险雷达、代码图谱、代码证据，并基于当前文件、选中代码、符号、链路或风险追问 AI。
 
 > npm 包名为 `@codemapai/codemap-ai`；CLI 已新增 `codeatlas`，并保留 `pfo` / `project-fast-onboarding` 兼容入口。
 
 ## 当前版本
 
-当前代码版本：`0.5.1`。
+当前代码版本：`0.2.0`。
 
-已完成能力覆盖 v0.1-v0.5，并继续补充项目理解工作台能力：顶部导航、CodeAtlas 品牌字标和 logo、报告质量信息、证据索引、模块详情、链路剧本、风险详情、Graph-aware Context Pack、结构化追问答案、明确失败策略、JS/TS Code Graph、Cytoscape 图谱、通用 ObjectInspector、AI Explain cache、AI JSON repair、人工确认状态字段、测试脚本、CI 和 zip 接管文档导出。
+已完成项目理解工作台核心能力：顶部导航、CodeAtlas 品牌字标和 logo、报告质量信息、证据索引、模块详情、链路剧本、风险详情、Graph-aware Context Pack、结构化追问答案、明确失败策略、JS/TS Code Graph、Cytoscape 图谱、通用 ObjectInspector、AI Explain cache、AI JSON repair、人工确认状态字段、测试脚本、CI 和 zip 接管文档导出。
 
 ## 品牌资源
 
@@ -46,13 +54,14 @@
 ## 安装
 
 ```bash
-npm install -g ./codemapai-codemap-ai-0.5.1.tgz
+npm install -g @codemapai/codemap-ai
 ```
 
-或者发布到 npm 后：
+本地打包验证：
 
 ```bash
-npm install -g @codemapai/codemap-ai
+npm run pack:local
+npm install -g ./codemapai-codemap-ai-0.2.0.tgz
 ```
 
 ## 使用
@@ -96,7 +105,7 @@ npm run pack:local   # 本地 npm pack
 npm run typecheck && npm run test && npm run build
 ```
 
-仓库已提供 GitHub Actions：PR 和 main 分支 push 会执行依赖安装、类型检查、测试和构建；main 分支还会执行 `npm pack --dry-run`。
+仓库已提供 GitHub Actions：PR 和 main 分支 push 会执行依赖安装、类型检查、测试和构建；main 分支还会执行 `npm pack --dry-run`。Release workflow 通过 npm Trusted Publishing 发布，不需要在仓库配置 npm token。
 
 ## AI 配置
 
@@ -236,8 +245,8 @@ API Key 优先可通过环境变量提供。通过页面保存时，配置写入
 - `/api/onboarding-docs` 已提供前端合并 Markdown 下载；暂未提供 zip 批量下载。
 - `test:e2e` 已接入 Playwright，包含工作台 smoke 用例；CI 会安装 Chromium 后执行。
 - `lint` 已接入 ESLint；当前关闭了 `preserve-caught-error` 和 `no-useless-escape`，避免把既有错误包装和正则写法变成大范围重构。
-- release workflow 已提供 npm provenance 发布入口，但真实发布依赖仓库配置 `NPM_TOKEN`。
+- release workflow 已提供 npm Trusted Publishing 发布入口，真实发布依赖 npm 包侧配置匹配的 Trusted Publisher。
 - 多模型 fallback 已支持 `provider=auto`，但每个 provider 的独立 API Key / model UI 尚未展开。
 - 暂未支持多人协作或远程仓库托管。
 
-下一版建议：npm 包名迁移、TypeScript 类型系统级调用解析、更完整 Playwright 关键路径测试、SQLite 查询 UI、多人协作。
+下一版建议：TypeScript 类型系统级调用解析、更完整 Playwright 关键路径测试、SQLite 查询 UI、多人协作。

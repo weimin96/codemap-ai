@@ -1,6 +1,6 @@
 {
   "name": "@codemapai/codemap-ai",
-  "version": "0.5.1",
+  "version": "0.2.0",
   "description": "CodeAtlas local AI project onboarding workbench with code preview, code graph, flow maps, risk radar, and context-bound Q&A.",
   "type": "module",
   "packageManager": "pnpm@10.24.0",
@@ -85,12 +85,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/weimin96/CodeAtlas.git"
+    "url": "git+https://github.com/weimin96/codemap-ai.git"
   },
   "bugs": {
-    "url": "https://github.com/weimin96/CodeAtlas/issues"
+    "url": "https://github.com/weimin96/codemap-ai/issues"
   },
-  "homepage": "https://github.com/weimin96/CodeAtlas#readme",
+  "homepage": "https://github.com/weimin96/codemap-ai#readme",
   "publishConfig": {
     "provenance": true,
     "access": "public"

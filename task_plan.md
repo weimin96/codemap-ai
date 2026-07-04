@@ -46,6 +46,8 @@
 | 36 | complete | 配置 npm 认证与 GitHub secret | npm whoami、gh secret set |
 | 37 | blocked | 发布到 npm 并确认结果 | GitHub Actions publish、npm view |
 | 38 | complete | 迁移 GitHub Actions 到 npm Trusted Publishing | workflow 审查、Actions 发布 |
+| 39 | blocked | 按新仓库地址手动发布 `0.1.0` | dry-run、npm publish、npm view |
+| 40 | in_progress | 整理 README 并通过 GitHub Actions 发布 `0.2.0` | dry-run、Actions publish、npm view |
 
 ### 验证方式
 - 自动化：执行项目已有最小验证命令，如 `npm run typecheck`、`npm run pack:local` 或 `npm pack --dry-run`。
@@ -67,3 +69,4 @@
 | 阶段 38 首次 `gh secret delete` 使用了当前 gh 版本不支持的 `--yes` / `--repo` | 改为在当前仓库上下文删除 Actions secret |
 | 阶段 38 首次 GitHub Actions 发布在依赖安装阶段失败 | Corepack 选择 pnpm 11.9.0，因 `esbuild` build script 未批准导致 `ERR_PNPM_IGNORED_BUILDS`；改为固定 pnpm 10.24.0 |
 | 阶段 37 第二次 GitHub Actions 发布在 `npm publish` 阶段返回 E404 | workflow 已生成 provenance，说明 OIDC 可用；npm 包级 Trusted Publisher 或 scope/package 发布权限仍未匹配 |
+| 阶段 39 手动 `npm publish` 返回 E403 | 新 token 可通过 `npm whoami`，但 npm 仍要求 2FA OTP 或 bypass 2FA token，包未发布 |

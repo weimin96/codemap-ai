@@ -29,3 +29,6 @@
 - 需要在 `package.json` 和 CI/release workflow 中固定 pnpm 版本，避免 runner 工具链漂移。
 - 第二次 GitHub Actions 发布运行通过了 install、typecheck、test、build 和 pack dry-run；`npm publish` 成功生成 provenance statement，但最终 PUT `@codemapai/codemap-ai` 返回 E404。
 - npm 官方文档说明 Trusted Publisher 需要在包设置中配置 GitHub user/org、repository、workflow filename 和 allowed actions；当前错误符合包级 Trusted Publisher 或 scope/package 权限未匹配。
+- 用户将仓库改为 `weimin96/codemap-ai`，本次手动发布目标版本为 `0.1.0`。
+- 新 token 的 `npm whoami` 返回 `codemapai`，但手动 `npm publish --access public --provenance=false` 返回 E403：仍需要 2FA OTP 或启用 bypass 2FA 的发布 token。
+- 用户确认 npm 发布配置已调整，本次发布目标版本改为 `0.2.0`，同时整理 README 并补充徽标。

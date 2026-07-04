@@ -28,4 +28,10 @@
 - 首次 GitHub Actions 发布运行 `28703893271` 失败在 `pnpm install --frozen-lockfile`，原因是 pnpm 11.9.0 的 ignored builds 策略拦截 `esbuild@0.28.1`。
 - 已固定 `packageManager` 为 `pnpm@10.24.0`，并在 CI/release workflows 中显式 prepare 该 pnpm 版本。
 - 第二次 GitHub Actions 发布运行 `28703934127` 已通过 install、typecheck、test、build、pack dry-run；`npm publish` 生成 provenance 后返回 E404，包未发布。
-- 当前阻塞点转移到 npm 侧：需要为 `@codemapai/codemap-ai` 配置包级 Trusted Publisher，匹配 GitHub user/org `weimin96`、repo `CodeAtlas`、workflow filename `release.yml`，Allowed actions 包含 `npm publish`。
+- 当前阻塞点转移到 npm 侧：需要为 `@codemapai/codemap-ai` 配置包级 Trusted Publisher，匹配 GitHub user/org `weimin96`、repo `codemap-ai`、workflow filename `release.yml`，Allowed actions 包含 `npm publish`。
+- 用户说明仓库已改为 `weimin96/codemap-ai`，要求使用新 token 先手动发布 `@codemapai/codemap-ai@0.1.0`。
+- 阶段 39 进行中：已将 package 版本改为 `0.1.0`，repository/bugs/homepage 改为 `weimin96/codemap-ai`，README 版本与 tarball 示例同步到 `0.1.0`。
+- 阶段 39 验证：`npm whoami` 返回 `codemapai`；`npm run release:dry-run` 通过，确认 `@codemapai/codemap-ai@0.1.0` tarball 正确。
+- 阶段 39 阻塞：手动 `npm publish --access public --provenance=false` 已通过 prepublishOnly 的 typecheck、test、build，但最终 npm 返回 E403，要求 2FA OTP 或 bypass 2FA token，包未发布。
+- 用户确认发布配置已调整，要求改为 `0.2.0`、整理 README 说明、补充徽标并重新发布。
+- 阶段 40 进行中：package 版本改为 `0.2.0`，README 新增 npm/CI/license/Node 徽标，安装说明优先使用 npm 包，发布说明更新为 GitHub Actions Trusted Publishing，无需 npm token。
