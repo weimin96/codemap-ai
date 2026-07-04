@@ -69,6 +69,7 @@ async function walk(root, dir = '', depth = 0, maxDepth = 8, result = [], should
     const rel = path.join(dir, entry.name);
     const posix = toPosix(rel);
     if (shouldIgnore(posix, entry.isDirectory())) continue;
+    if (entry.isSymbolicLink()) continue;
     if (entry.isDirectory()) {
       result.push({ path: posix, type: 'dir', depth, role: guessDirRole(posix), priority: guessDirPriority(posix) });
       await walk(root, rel, depth + 1, maxDepth, result, shouldIgnore);

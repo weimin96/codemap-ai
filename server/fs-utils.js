@@ -27,6 +27,16 @@ export function ensureInside(root, candidate) {
   return resolved;
 }
 
+export async function ensureRealPathInside(root, candidate) {
+  const rootReal = await fs.realpath(root);
+  const candidateReal = await fs.realpath(candidate);
+  const relative = path.relative(rootReal, candidateReal);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('Path is outside project root.');
+  }
+  return candidateReal;
+}
+
 export async function exists(p) {
   try {
     await fs.access(p);
@@ -46,10 +56,11 @@ export function isProbablyText(filePath) {
 
 export async function readTextFileSafe(root, relPath, maxBytes = 180_000) {
   const absolute = ensureInside(root, relPath);
-  const stat = await fs.stat(absolute);
+  const realPath = await ensureRealPathInside(root, absolute);
+  const stat = await fs.stat(realPath);
   if (!stat.isFile()) throw new Error('Not a file.');
-  if (!isProbablyText(absolute)) throw new Error('File type is not supported for preview.');
-  const handle = await fs.open(absolute, 'r');
+  if (!isProbablyText(realPath)) throw new Error('File type is not supported for preview.');
+  const handle = await fs.open(realPath, 'r');
   try {
     const bytesToRead = Math.min(stat.size, maxBytes);
     const buffer = Buffer.alloc(bytesToRead);
