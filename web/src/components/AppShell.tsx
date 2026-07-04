@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Bot, Boxes, BrainCircuit, Code2, Database, FileClock, FileText, GitFork, Home, Map, RefreshCw, Route, Settings, ShieldAlert, Sparkles, SquareCode } from 'lucide-react';
+import { Bot, Boxes, BrainCircuit, Code2, Database, FileClock, FileText, GitFork, Home, Map, RefreshCw, Route, Settings, ShieldAlert, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StepProgress, type ProgressStep } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -49,15 +49,18 @@ export function AppShell({
   return <div className="flex h-screen flex-col bg-background text-foreground">
     <header className="flex h-16 items-center justify-between border-b bg-white px-6">
       <div className="flex min-w-0 items-center gap-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-white"><SquareCode size={18} /></div>
-        <div className="min-w-0">
+        <div className="flex shrink-0 items-center gap-3">
+          <img src="/brand/codeatlas-logo.svg" alt="CodeAtlas" className="h-10 w-10 rounded-xl shadow-sm" />
+          <img src="/brand/codeatlas-wordmark.svg" alt="CODEATLAS" className="hidden h-9 w-[248px] rounded-lg object-cover sm:block" />
+        </div>
+        <div className="min-w-0 border-l pl-4">
           <div className="flex items-center gap-3">
-            <h1 className="truncate text-base font-bold text-slate-950">{projectName(payload)}</h1>
+            <h1 className="truncate text-sm font-bold text-slate-950">{projectName(payload)}</h1>
             <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">{payload?.report?.projectOverview?.type || '待识别'}</span>
           </div>
           <div className="mt-1 flex min-w-0 items-center gap-4 text-xs text-slate-500">
-            <span className="max-w-[520px] truncate">{payload?.projectDir || '项目加载中'}</span>
-            <span className="hidden lg:inline">最近分析：{payload?.scan?.repoMap?.generatedAt ? formatDate(payload.scan.repoMap.generatedAt) : '-'}</span>
+            <span className="max-w-[420px] truncate">{payload?.projectDir || '项目加载中'}</span>
+            <span className="hidden xl:inline">最近分析：{payload?.scan?.repoMap?.generatedAt ? formatDate(payload.scan.repoMap.generatedAt) : '-'}</span>
           </div>
         </div>
       </div>

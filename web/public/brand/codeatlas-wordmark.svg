@@ -1,0 +1,44 @@
+<svg width="660" height="96" viewBox="0 0 660 96" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">CODEATLAS wordmark</title>
+  <desc id="desc">A futuristic geometric wordmark spelling CODEATLAS in cold white strokes on a deep navy background.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="660" y2="96" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#070A33"/>
+      <stop offset="0.55" stop-color="#090D46"/>
+      <stop offset="1" stop-color="#03051F"/>
+    </linearGradient>
+    <linearGradient id="stroke" x1="26" y1="20" x2="630" y2="76" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="0.45" stop-color="#F4F2FF"/>
+      <stop offset="1" stop-color="#D7DDFF"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-60%" width="140%" height="220%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="1.6" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.62 0 0 0 0 0.70 0 0 0 0 1 0 0 0 0.75 0" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .letter{stroke:url(#stroke);stroke-width:7.5;stroke-linecap:round;stroke-linejoin:round;filter:url(#glow)}
+      .cut{stroke:#070A33;stroke-width:9;stroke-linecap:round;opacity:.96}
+      .grid{stroke:#293163;stroke-width:1;opacity:.42}
+    </style>
+  </defs>
+  <rect width="660" height="96" rx="10" fill="url(#bg)"/>
+  <path class="grid" d="M24 18H636M24 78H636M64 10V86M128 10V86M192 10V86M256 10V86M320 10V86M384 10V86M448 10V86M512 10V86M576 10V86M640 10V86"/>
+  <g transform="translate(30 0)">
+    <path class="letter" d="M42 24H4V72H42"/>
+    <path class="letter" d="M64 24H104V72H64V24Z"/>
+    <path class="letter" d="M126 24V72H158C169 72 176 62 176 48C176 34 169 24 158 24H126Z"/>
+    <path class="letter" d="M198 24H238M198 48H229M198 72H238M198 24V72"/>
+    <path class="letter" d="M260 72L281 24L302 72M269 56H293"/>
+    <path class="letter" d="M322 24H366M344 24V72"/>
+    <path class="letter" d="M388 24V72H429"/>
+    <path class="letter" d="M448 72L469 24L490 72M457 56H481"/>
+    <path class="letter" d="M508 24H552M530 24V72"/>
+    <path class="letter" d="M592 24H552V48H592V72H552" transform="translate(-20 0)"/>
+    <path class="cut" d="M286 26L296 26M474 26L484 26M534 24L543 24"/>
+  </g>
+</svg>

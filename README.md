@@ -1,12 +1,29 @@
-# Project Fast Onboarding
+<p align="center">
+  <img src="./web/public/brand/codeatlas-wordmark.svg" alt="CODEATLAS" width="520" />
+</p>
+
+<p align="center">
+  <img src="./web/public/brand/codeatlas-logo.svg" alt="CodeAtlas logo" width="112" />
+</p>
+
+# CodeAtlas
 
 本地项目快速接管工作台。通过 npm 安装后，用命令指定一个本地项目目录，在浏览器里查看项目总览、模块地图、模块详情、核心链路、链路详情、数据模型、风险雷达、代码图谱、代码证据，并基于当前文件、选中代码、符号、链路或风险追问 AI。
+
+> npm 包名和 CLI 当前仍沿用 `project-fast-onboarding` / `pfo`；产品展示名已先统一为 CodeAtlas。
 
 ## 当前版本
 
 当前代码版本：`0.5.1`。
 
-已完成能力覆盖 v0.1-v0.5，并继续补充项目理解工作台能力：顶部导航、报告质量信息、证据索引、模块详情、链路剧本、风险详情、Context Pack mode、结构化追问答案、明确失败策略、JS/TS Code Graph、图谱 Inspector、AI JSON repair、人工确认状态字段、测试脚本、CI 和接管文档导出。
+已完成能力覆盖 v0.1-v0.5，并继续补充项目理解工作台能力：顶部导航、CodeAtlas 品牌字标和 logo、报告质量信息、证据索引、模块详情、链路剧本、风险详情、Context Pack mode、结构化追问答案、明确失败策略、JS/TS Code Graph、图谱 Inspector、AI JSON repair、人工确认状态字段、测试脚本、CI 和接管文档导出。
+
+## 品牌资源
+
+- 字标：`web/public/brand/codeatlas-wordmark.svg`
+- Logo：`web/public/brand/codeatlas-logo.svg`
+- 浏览器 favicon 和系统顶部品牌区已使用该 logo。
+- 字标为纯 SVG 几何笔画，不依赖外部字体。
 
 ## 技术栈
 
@@ -195,7 +212,7 @@ API Key 优先可通过环境变量提供。通过页面保存时，配置写入
 
 ## 当前限制
 
-- 产品名、仓库名、README 标题、npm 包名和 CLI 还未统一；当前仍保留 `Project Fast Onboarding` / `project-fast-onboarding` / `pfo`。
+- 产品展示名、README 标题和系统顶部品牌已统一为 CodeAtlas；npm 包名和 CLI 仍保留 `project-fast-onboarding` / `pfo`，尚未迁移。
 - 符号索引当前使用正则实现，不是 Tree-sitter AST 级索引。
 - Code Graph 目前只支持 JS/TS 图谱层；Python / Go / Java 仍只有符号索引。
 - `calls` 是基于名称匹配的近似静态调用关系，无法覆盖动态调用、别名、重导出和复杂类型推断。
