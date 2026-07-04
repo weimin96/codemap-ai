@@ -9,3 +9,5 @@
 - 确认前端 AppShell 目前没有代码图谱页入口。
 - 阶段 15 完成：新增 build/test/test:e2e/lint/prepublishOnly 脚本、Node 内置测试和 GitHub Actions CI。
 - 阶段 15 验证通过：npm run test，npm run typecheck，npm run build。
+- 阶段 16 完成：新增 server/code-graph.js，支持 JS/TS 文件、目录、符号、imports、calls、warnings 和 shortest path。
+- 阶段 16 验证通过：node --check server/code-graph.js，npm run test。

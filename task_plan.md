@@ -21,7 +21,7 @@
 |---|---|---|---|
 | 0-14 | complete | 已完成上一轮报告、导航、详情页、Context Pack、失败策略与 README 更新 | 见 progress.md |
 | 15 | complete | 补测试/构建/发布脚本与 GitHub Actions | npm run typecheck；npm run test；npm run build |
-| 16 | pending | 新增 JS/TS Code Graph Layer：nodes/edges/warnings/shortest path | npm run test；node --check server/code-graph.js |
+| 16 | complete | 新增 JS/TS Code Graph Layer：nodes/edges/warnings/shortest path | npm run test；node --check server/code-graph.js |
 | 17 | pending | 接入 /api/code-graph 与前端代码图谱页 | npm run typecheck；node --check server/server.js |
 | 18 | pending | 图谱 Inspector：Overview/Why Connected/Warnings/Code | npm run typecheck |
 | 19 | pending | AI JSON repair 一次重试 | npm run test；node --check server/ai.js |
