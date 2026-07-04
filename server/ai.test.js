@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildJsonRepairPrompt, parseAnalysisReport, parseAskAnswer, parseJsonResult } from './ai.js';
+import { buildJsonRepairPrompt, parseAnalysisReport, parseAskAnswer, parseJsonResult, resolveAiTimeoutMs } from './ai.js';
+
+test('resolveAiTimeoutMs validates configured request timeout', () => {
+  assert.equal(resolveAiTimeoutMs({ timeoutMs: 1000 }), 1000);
+  assert.equal(resolveAiTimeoutMs({ timeoutMs: '2500' }), 2500);
+  assert.throws(() => resolveAiTimeoutMs({ timeoutMs: 999 }), /Invalid AI timeout/);
+  assert.throws(() => resolveAiTimeoutMs({ timeoutMs: 'bad' }), /Invalid AI timeout/);
+});
 
 test('parseJsonResult accepts fenced json only after stripping fences', () => {
   const parsed = parseJsonResult('```json\n{"ok":true}\n```');

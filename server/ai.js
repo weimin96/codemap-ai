@@ -6,6 +6,10 @@ import { createOllama } from 'ollama-ai-provider-v2';
 
 globalThis.AI_SDK_LOG_WARNINGS = false;
 
+const DEFAULT_AI_TIMEOUT_MS = 60_000;
+const MIN_AI_TIMEOUT_MS = 1_000;
+const MAX_AI_TIMEOUT_MS = 10 * 60_000;
+
 export function modelFromConfig(config = {}) {
   const provider = config.provider || process.env.CODEMAP_AI_PROVIDER || 'openai-compatible';
   const modelName = config.model || process.env.OPENAI_MODEL || process.env.CODEMAP_AI_MODEL || defaultModel(provider);
@@ -58,7 +62,7 @@ export async function analyzeWithAI({ scan, chunks, contextPack, config }) {
     prompt,
     temperature: 0.15
   });
-  const parsed = await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema: 'project analysis report JSON' });
+  const parsed = await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema: 'project analysis report JSON', timeoutMs: result.timeoutMs });
   return validateAnalysisReport(parsed);
 }
 
@@ -70,23 +74,47 @@ export async function askWithAI({ question, context, config }) {
     prompt,
     temperature: 0.2
   });
-  const parsed = await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema: 'ask answer JSON' });
+  const parsed = await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema: 'ask answer JSON', timeoutMs: result.timeoutMs });
   return validateAskAnswer(parsed);
 }
 
 async function generateTextWithFallback({ config, system, prompt, temperature }) {
   const candidates = modelConfigCandidates(config);
+  const timeoutMs = resolveAiTimeoutMs(config);
   const errors = [];
   for (const candidate of candidates) {
     const model = modelFromConfig(candidate);
     try {
-      const result = await generateText({ model, system, prompt, temperature });
-      return { ...result, model, provider: candidate.provider };
+      const result = await generateTextWithTimeout({ model, system, prompt, temperature }, timeoutMs);
+      return { ...result, model, provider: candidate.provider, timeoutMs };
     } catch (error) {
       errors.push(`${candidate.provider}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   throw new Error(`All AI providers failed: ${errors.join(' | ')}`);
+}
+
+async function generateTextWithTimeout(args, timeoutMs) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await generateText({ ...args, abortSignal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error(`AI request timed out after ${timeoutMs}ms`);
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function resolveAiTimeoutMs(config = {}) {
+  const raw = config.timeoutMs ?? process.env.CODEMAP_AI_TIMEOUT_MS;
+  if (raw === undefined || raw === null || raw === '') return DEFAULT_AI_TIMEOUT_MS;
+  const timeoutMs = Number(raw);
+  if (!Number.isInteger(timeoutMs) || timeoutMs < MIN_AI_TIMEOUT_MS || timeoutMs > MAX_AI_TIMEOUT_MS) {
+    throw new Error(`Invalid AI timeout: ${raw}`);
+  }
+  return timeoutMs;
 }
 
 export function modelConfigCandidates(config = {}) {
@@ -311,16 +339,16 @@ export function validateAskAnswer(value) {
   return checked.data;
 }
 
-async function parseJsonResultWithRepair({ text, model, expectedSchema }) {
+async function parseJsonResultWithRepair({ text, model, expectedSchema, timeoutMs = DEFAULT_AI_TIMEOUT_MS }) {
   try {
     return parseJsonResult(text);
   } catch (firstError) {
-    const repair = await generateText({
+    const repair = await generateTextWithTimeout({
       model,
       system: JSON_REPAIR_SYSTEM_PROMPT,
       prompt: buildJsonRepairPrompt({ text, expectedSchema, error: firstError }),
       temperature: 0
-    });
+    }, timeoutMs);
     try {
       return parseJsonResult(repair.text);
     } catch (repairError) {
