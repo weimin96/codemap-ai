@@ -152,6 +152,7 @@ codemap-ai /path/to/your/project --no-open
 
 ```bash
 codemap-ai pack /path/to/your/project --format markdown -o context.md
+codemap-ai pack https://github.com/org/repo --format markdown -o context.md
 codemap-ai pack /path/to/your/project --format json -o context.json
 codemap-ai pack /path/to/your/project --include src/** --ignore **/*.test.ts -o context.md
 git ls-files | codemap-ai pack /path/to/your/project --stdin -o context.md
@@ -159,7 +160,7 @@ codemap-ai pack /path/to/your/project --include-diffs --include-logs -o context.
 codemap-ai pack /path/to/your/project --max-files 5000 --max-depth 6 --max-bytes-total 200000000 -o context.md
 ```
 
-`pack` 会输出 Repo Map、Graph-aware Context Pack、已选文件片段和跳过原因，适合与其他 CLI 或 AI 工具串联。`--include`、`--ignore` 和 `--stdin` 只影响 pack 输出，不改变 Web UI 的项目扫描。`--include-diffs` 会附加当前 Git diff，`--include-logs` 会附加最近 20 条提交摘要。`--max-files`、`--max-depth` 和 `--max-bytes-total` 可限制大仓库扫描范围。
+`pack` 会输出 Repo Map、Graph-aware Context Pack、已选文件片段和跳过原因，适合与其他 CLI 或 AI 工具串联。输入为 Git URL 时会浅克隆到临时目录，生成完成后自动清理。`--include`、`--ignore` 和 `--stdin` 只影响 pack 输出，不改变 Web UI 的项目扫描。`--include-diffs` 会附加当前 Git diff，`--include-logs` 会附加最近 20 条提交摘要。`--max-files`、`--max-depth` 和 `--max-bytes-total` 可限制大仓库扫描范围。
 
 ## AI providers
 
