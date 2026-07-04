@@ -80,6 +80,20 @@ test('buildCodeGraph resolves namespace imports to fact call edges', async () =>
   assert.equal(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes('src/other.ts')), false);
 });
 
+test('buildCodeGraph resolves monorepo workspace package imports', async () => {
+  const fixture = await createFixture({
+    'package.json': JSON.stringify({ workspaces: ['packages/*'] }),
+    'packages/orders/package.json': JSON.stringify({ name: '@demo/orders', main: 'dist/index.js' }),
+    'packages/orders/src/index.ts': "export function createOrder() {\n  return true;\n}\n",
+    'apps/web/src/app.ts': "import { createOrder } from '@demo/orders';\nexport function start() {\n  createOrder();\n}\n"
+  });
+
+  const graph = await buildCodeGraph(fixture);
+
+  assert.ok(graph.edges.some((edge) => edge.source === 'file:apps/web/src/app.ts' && edge.target === 'file:packages/orders/src/index.ts' && edge.type === 'imports'));
+  assert.ok(graph.edges.some((edge) => edge.type === 'calls' && edge.source.includes(':start') && edge.target.includes('packages/orders/src/index.ts') && edge.confidence === 'fact'));
+});
+
 test('buildCodeGraph resolves tsconfig path aliases', async () => {
   const fixture = await createFixture({
     'tsconfig.json': JSON.stringify({ compilerOptions: { baseUrl: '.', paths: { '@/*': ['src/*'] } } }),

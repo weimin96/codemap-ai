@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import ts from 'typescript';
 import { readTextFileSafe, toPosix } from './fs-utils.js';
@@ -258,7 +259,8 @@ function extractNamespaceImports(node) {
 
 async function buildImportResolver(root, filePathSet) {
   const tsconfig = await readTsconfig(root);
-  return (fromPath, specifier) => resolveImportPath(fromPath, specifier, filePathSet, tsconfig);
+  const workspacePackages = await readWorkspacePackages(root);
+  return (fromPath, specifier) => resolveImportPath(fromPath, specifier, filePathSet, tsconfig, workspacePackages);
 }
 
 async function readTsconfig(root) {
@@ -275,14 +277,73 @@ async function readTsconfig(root) {
   }
 }
 
-function resolveImportPath(fromPath, specifier, filePathSet, tsconfig) {
+function resolveImportPath(fromPath, specifier, filePathSet, tsconfig, workspacePackages = new Map()) {
   if (specifier.startsWith('.')) return resolveFromBase(path.posix.dirname(fromPath), specifier, filePathSet);
   for (const candidate of resolveTsconfigPaths(specifier, tsconfig)) {
     const resolved = resolveFromBase('', candidate, filePathSet);
     if (resolved) return resolved;
   }
+  const workspaceResolved = resolveWorkspacePackageImport(specifier, workspacePackages, filePathSet);
+  if (workspaceResolved) return workspaceResolved;
   if (tsconfig.baseUrl) return resolveFromBase(tsconfig.baseUrl, specifier, filePathSet);
   return '';
+}
+
+async function readWorkspacePackages(root) {
+  const packages = new Map();
+  try {
+    const file = await readTextFileSafe(root, 'package.json', 120_000);
+    const rootPackage = JSON.parse(file.content);
+    const workspacePatterns = Array.isArray(rootPackage.workspaces)
+      ? rootPackage.workspaces
+      : Array.isArray(rootPackage.workspaces?.packages) ? rootPackage.workspaces.packages : [];
+    for (const pattern of workspacePatterns) {
+      if (!String(pattern).endsWith('/*')) continue;
+      const workspaceDir = String(pattern).slice(0, -2).replace(/\\/g, '/');
+      for (const entry of await safeReadDir(root, workspaceDir)) {
+        const packageDir = `${workspaceDir}/${entry}`;
+        const packageJson = await readPackageJson(root, `${packageDir}/package.json`);
+        if (!packageJson?.name) continue;
+        packages.set(packageJson.name, { dir: packageDir, entry: packageJson.module || packageJson.main || packageJson.types || 'index.ts' });
+      }
+    }
+  } catch (_error) {
+    return packages;
+  }
+  return packages;
+}
+
+async function safeReadDir(root, relPath) {
+  try {
+    const entries = await fs.readdir(path.join(root, relPath), { withFileTypes: true });
+    return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  } catch (_error) {
+    return [];
+  }
+}
+
+async function readPackageJson(root, relPath) {
+  try {
+    const file = await readTextFileSafe(root, relPath, 80_000);
+    return JSON.parse(file.content);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function resolveWorkspacePackageImport(specifier, workspacePackages, filePathSet) {
+  const exact = workspacePackages.get(specifier);
+  if (exact) return resolveFromBase(exact.dir, stripBuildEntry(exact.entry), filePathSet) || resolveFromBase(exact.dir, 'src/index', filePathSet) || resolveFromBase(exact.dir, 'index', filePathSet);
+  for (const [name, pkg] of workspacePackages) {
+    if (!specifier.startsWith(`${name}/`)) continue;
+    const subpath = specifier.slice(name.length + 1);
+    return resolveFromBase(pkg.dir, subpath, filePathSet);
+  }
+  return '';
+}
+
+function stripBuildEntry(entry) {
+  return String(entry || '').replace(/^\.\//, '').replace(/^dist\//, 'src/').replace(/\.[cm]?js$/, '');
 }
 
 function resolveTsconfigPaths(specifier, tsconfig) {
