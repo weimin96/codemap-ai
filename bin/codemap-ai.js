@@ -8,6 +8,7 @@ import { startServer } from '../server/server.js';
 import { scanProject } from '../server/scanner.js';
 import { buildCodeGraph } from '../server/code-graph.js';
 import { buildContextPack } from '../server/context-pack.js';
+import { buildRepoMap } from '../server/repo-map.js';
 import { createAccessToken, isLoopbackHost, parsePort, requireNetworkFlag } from './cli-options.js';
 
 if (process.argv[2] === 'pack') {
@@ -61,6 +62,8 @@ async function runPack(argv) {
     .argument('[projectDir]', 'project folder to inspect', '.')
     .option('--format <format>', 'output format: markdown or json', 'markdown')
     .option('--max-chars <chars>', 'maximum context characters', '120000')
+    .option('--include <patterns...>', 'include only matching paths for the pack output')
+    .option('--ignore <patterns...>', 'exclude matching paths from the pack output')
     .option('-o, --output <file>', 'write output to a file instead of stdout')
     .parse(argv, { from: 'user' });
 
@@ -71,7 +74,10 @@ async function runPack(argv) {
   if (!Number.isFinite(maxChars) || maxChars <= 0) throw new Error('Invalid pack --max-chars value.');
 
   const projectDir = path.resolve(packProgram.args[0] || '.');
-  const scan = await scanProject(projectDir);
+  const scan = filterScanForPack(await scanProject(projectDir), {
+    include: opts.include || [],
+    ignore: opts.ignore || []
+  });
   const codeGraph = await buildCodeGraph({ root: projectDir, scan });
   const contextPack = await buildContextPack({ root: projectDir, scan, codeGraph, maxChars });
   const output = format === 'json'
@@ -85,6 +91,70 @@ async function runPack(argv) {
   }
   process.stdout.write(output);
   if (!output.endsWith('\n')) process.stdout.write('\n');
+}
+
+function filterScanForPack(scan, { include = [], ignore = [] } = {}) {
+  const includePatterns = normalizePathPatterns(include);
+  const ignorePatterns = normalizePathPatterns(ignore);
+  if (!includePatterns.length && !ignorePatterns.length) return scan;
+  const files = (scan.files || []).filter((file) => {
+    const included = !includePatterns.length || includePatterns.some((pattern) => pathMatchesPattern(file.path, pattern));
+    const ignored = ignorePatterns.some((pattern) => pathMatchesPattern(file.path, pattern));
+    return included && !ignored;
+  });
+  const allowedPaths = new Set(files.map((file) => file.path));
+  const symbols = (scan.symbols || []).filter((symbol) => allowedPaths.has(symbol.path));
+  const summary = {
+    ...(scan.summary || {}),
+    likelyEntrypoints: (scan.summary?.likelyEntrypoints || []).filter((item) => allowedPaths.has(item))
+  };
+  return {
+    ...scan,
+    files,
+    symbols,
+    keyFiles: (scan.keyFiles || []).filter((file) => allowedPaths.has(file.path)),
+    totalFiles: files.length,
+    totalSymbols: symbols.length,
+    summary,
+    tree: (scan.tree || []).filter((item) => item.type !== 'file' || allowedPaths.has(item.path)),
+    repoMap: buildRepoMap({ root: scan.root, files, symbols, summary, scannedAt: scan.scannedAt })
+  };
+}
+
+function normalizePathPatterns(patterns) {
+  return patterns.flatMap((item) => String(item || '').split(',')).map((item) => toPosixPath(item.trim())).filter(Boolean);
+}
+
+function pathMatchesPattern(filePath, pattern) {
+  const normalizedPath = toPosixPath(filePath);
+  const normalizedPattern = toPosixPath(pattern);
+  if (normalizedPath === normalizedPattern) return true;
+  if (!/[?*]/.test(normalizedPattern)) return normalizedPath.startsWith(`${normalizedPattern.replace(/\/$/, '')}/`);
+  const regex = new RegExp(`^${globToRegex(normalizedPattern)}$`);
+  return regex.test(normalizedPath);
+}
+
+function globToRegex(pattern) {
+  let output = '';
+  for (let index = 0; index < pattern.length; index += 1) {
+    const char = pattern[index];
+    const next = pattern[index + 1];
+    if (char === '*' && next === '*') {
+      output += '.*';
+      index += 1;
+    } else if (char === '*') {
+      output += '[^/]*';
+    } else if (char === '?') {
+      output += '[^/]';
+    } else {
+      output += char.replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
+    }
+  }
+  return output;
+}
+
+function toPosixPath(value) {
+  return String(value || '').replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
 function buildPackJson({ projectDir, scan, codeGraph, contextPack }) {
