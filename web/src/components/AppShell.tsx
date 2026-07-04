@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Bot, Boxes, BrainCircuit, Code2, Database, FileClock, FileText, GitFork, Home, Map, RefreshCw, Route, Settings, ShieldAlert, Sparkles } from 'lucide-react';
+import { BrandMark } from '@/components/BrandMark';
 import { Button } from '@/components/ui/button';
 import { StepProgress, type ProgressStep } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -49,10 +50,7 @@ export function AppShell({
   return <div className="flex h-screen flex-col bg-background text-foreground">
     <header className="flex h-16 items-center justify-between border-b bg-white px-6">
       <div className="flex min-w-0 items-center gap-4">
-        <div className="flex shrink-0 items-center gap-3">
-          <img src="/brand/codeatlas-logo.svg" alt="CodeAtlas" className="h-10 w-10 rounded-xl shadow-sm" />
-          <img src="/brand/codeatlas-wordmark.svg" alt="CODEATLAS" className="hidden h-9 w-[248px] rounded-lg object-cover sm:block" />
-        </div>
+        <BrandMark />
         <div className="min-w-0 border-l pl-4">
           <div className="flex items-center gap-3">
             <h1 className="truncate text-sm font-bold text-slate-950">{projectName(payload)}</h1>

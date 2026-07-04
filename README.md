@@ -22,6 +22,8 @@
 
 - 字标：`web/public/brand/codeatlas-wordmark.svg`
 - Logo：`web/public/brand/codeatlas-logo.svg`
+- 系统复用组件：`web/src/components/BrandMark.tsx`
+- 品牌使用说明：`docs/brand.md`
 - 浏览器 favicon 和系统顶部品牌区已使用该 logo。
 - 字标为纯 SVG 几何笔画，不依赖外部字体。
 
