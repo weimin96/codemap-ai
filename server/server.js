@@ -30,13 +30,14 @@ function createServerCache() {
   };
 }
 
-export async function startServer({ projectDir, port, host, serveWeb = true }) {
+export async function startServer({ projectDir, port, host, serveWeb = true, accessToken = '' }) {
   const cache = createServerCache();
   const stat = await fs.stat(projectDir);
   if (!stat.isDirectory()) throw new Error(`Not a directory: ${projectDir}`);
 
   const app = express();
   app.use(express.json({ limit: '20mb' }));
+  installAccessTokenGuard(app, accessToken);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
@@ -271,6 +272,37 @@ export async function startServer({ projectDir, port, host, serveWeb = true }) {
       resolve({ app, listener, port: listener.address().port });
     });
   });
+}
+
+function installAccessTokenGuard(app, accessToken) {
+  if (!accessToken) return;
+  app.use((req, res, next) => {
+    if (requestHasAccessToken(req, accessToken)) {
+      res.cookie('codemap_ai_token', accessToken, { httpOnly: true, sameSite: 'strict', path: '/' });
+      return next();
+    }
+    if (!req.path.startsWith('/api/') || req.path === '/api/health') return next();
+    return res.status(401).json({ error: 'Access token is required.' });
+  });
+}
+
+function requestHasAccessToken(req, accessToken) {
+  const queryToken = typeof req.query.token === 'string' ? req.query.token : '';
+  const headerToken = String(req.get('x-codemap-ai-token') || '').trim();
+  const authHeader = String(req.get('authorization') || '').trim();
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const cookieToken = readCookie(req, 'codemap_ai_token');
+  return [queryToken, headerToken, bearerToken, cookieToken].includes(accessToken);
+}
+
+function readCookie(req, name) {
+  const header = req.get('cookie');
+  if (!header) return '';
+  for (const item of header.split(';')) {
+    const [rawKey, ...rest] = item.trim().split('=');
+    if (rawKey === name) return decodeURIComponent(rest.join('='));
+  }
+  return '';
 }
 
 async function mountWebApp(app, port) {

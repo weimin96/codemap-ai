@@ -24,8 +24,9 @@ async function closeServer(server) {
   });
 }
 
-async function getProject(server) {
-  const response = await fetch(`http://127.0.0.1:${server.port}/api/project`);
+async function getProject(server, token = '') {
+  const suffix = token ? `?token=${token}` : '';
+  const response = await fetch(`http://127.0.0.1:${server.port}/api/project${suffix}`);
   assert.equal(response.status, 200);
   return await response.json();
 }
@@ -49,5 +50,26 @@ test('startServer keeps project cache inside each server instance', async () => 
   } finally {
     await closeServer(firstServer);
     await closeServer(secondServer);
+  }
+});
+
+test('startServer protects API routes when an access token is configured', async () => {
+  const root = await createProject({ 'README.md': 'network protected project' });
+  const server = await startServer({ projectDir: root, port: 0, host: '127.0.0.1', serveWeb: false, accessToken: 'secret-token' });
+
+  try {
+    const health = await fetch(`http://127.0.0.1:${server.port}/api/health`);
+    assert.equal(health.status, 200);
+
+    const blocked = await fetch(`http://127.0.0.1:${server.port}/api/project`);
+    assert.equal(blocked.status, 401);
+
+    const wrong = await fetch(`http://127.0.0.1:${server.port}/api/project?token=wrong-token`);
+    assert.equal(wrong.status, 401);
+
+    const project = await getProject(server, 'secret-token');
+    assert.deepEqual(project.scan.files.map((file) => file.path), ['README.md']);
+  } finally {
+    await closeServer(server);
   }
 });
