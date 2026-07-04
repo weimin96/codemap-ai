@@ -152,7 +152,8 @@ API Key: 留空
 - 构建 Repo Map，并按优先级、路径角色、符号数量和文件大小排序。
 - 构建 JS/TS Code Graph，输出 nodes、edges、warnings，边类型包含 `contains`、`defines`、`imports`、`calls`。
 - Code Graph 支持解析相对导入、近似函数调用、未解析导入和未解析调用告警。
-- 图谱页支持 Inspector：概览、为什么有关、告警、代码。
+- 图谱页支持 Inspector：概览、解释、为什么有关、告警、代码。
+- Inspector 解释 tab 使用 600ms 延迟触发、切换取消和前端 session cache。
 - Why Connected 通过最短路径解释两个节点为什么有关。
 - 构建 Context Pack，按字符预算选择 AI 分析上下文，并支持导出 `project-context.md`。
 - Context Pack 支持 `overview`、`module`、`flow`、`risk`、`question` mode，并按目标模块、链路、风险、路径和符号加权选择上下文。
@@ -232,4 +233,4 @@ API Key 优先可通过环境变量提供。通过页面保存时，配置写入
 - release workflow 已提供 npm provenance 发布入口，但真实发布依赖仓库配置 `NPM_TOKEN`。
 - 暂未支持多人协作或远程仓库托管。
 
-下一版建议：品牌命名统一、图谱持久化、解释缓存、前端文档集下载、Playwright 关键路径测试、SQLite 接管知识库。
+下一版建议：品牌命名统一、图谱持久化、AI Explain API、Playwright 关键路径测试、SQLite 接管知识库。

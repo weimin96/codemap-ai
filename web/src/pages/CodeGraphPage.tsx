@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Boxes, FileCode2, GitFork, Search } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState, SectionTitle, StatCard } from '@/components/PageBlocks';
 import type { CodeGraph, CodeGraphEdge, CodeGraphNode } from '@/types';
 
-type InspectorTab = 'overview' | 'why' | 'warnings' | 'code';
+type InspectorTab = 'overview' | 'explain' | 'why' | 'warnings' | 'code';
 
 export function CodeGraphPage({ graph, loading, onLoadGraph, onOpenFile }: {
   graph: CodeGraph | null;
@@ -19,6 +19,9 @@ export function CodeGraphPage({ graph, loading, onLoadGraph, onOpenFile }: {
   const [selectedId, setSelectedId] = useState('');
   const [targetId, setTargetId] = useState('');
   const [tab, setTab] = useState<InspectorTab>('overview');
+  const [explanation, setExplanation] = useState('');
+  const [explainLoading, setExplainLoading] = useState(false);
+  const explainCacheRef = useRef(new Map<string, string>());
 
   useEffect(() => {
     if (!graph && loading !== 'code-graph') onLoadGraph();
@@ -37,6 +40,31 @@ export function CodeGraphPage({ graph, loading, onLoadGraph, onOpenFile }: {
   const relatedEdges = selectedNode ? edges.filter((edge) => edge.source === selectedNode.id || edge.target === selectedNode.id).slice(0, 80) : [];
   const selectedWarnings = selectedNode?.path ? graph?.warnings.filter((warning) => warning.path === selectedNode.path) || [] : [];
   const connection = selectedNode && targetNode ? shortestPath(edges, selectedNode.id, targetNode.id) : [];
+
+  useEffect(() => {
+    if (!selectedNode || tab !== 'explain') return;
+    const cacheKey = `${graph?.generatedAt || 'graph'}:${selectedNode.id}`;
+    const cached = explainCacheRef.current.get(cacheKey);
+    if (cached) {
+      setExplanation(cached);
+      setExplainLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setExplainLoading(true);
+    setExplanation('');
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      const next = buildNodeExplanation({ node: selectedNode, edges: relatedEdges, nodes, warnings: selectedWarnings });
+      explainCacheRef.current.set(cacheKey, next);
+      setExplanation(next);
+      setExplainLoading(false);
+    }, 600);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [graph?.generatedAt, nodes, relatedEdges, selectedNode, selectedWarnings, tab]);
 
   if (!graph) return <div className="space-y-4">
     <SectionTitle title="代码图谱" description="基于 JS/TS 静态扫描构建文件、符号、导入和调用关系。" />
@@ -80,12 +108,13 @@ export function CodeGraphPage({ graph, loading, onLoadGraph, onOpenFile }: {
         <CardHeader className="space-y-3">
           <CardTitle className="text-base">当前对象 Inspector</CardTitle>
           <div className="flex flex-wrap gap-2">
-            {(['overview', 'why', 'warnings', 'code'] as InspectorTab[]).map((item) => <Button key={item} type="button" size="sm" variant={tab === item ? 'default' : 'outline'} onClick={() => setTab(item)}>{tabLabel(item)}</Button>)}
+            {(['overview', 'explain', 'why', 'warnings', 'code'] as InspectorTab[]).map((item) => <Button key={item} type="button" size="sm" variant={tab === item ? 'default' : 'outline'} onClick={() => setTab(item)}>{tabLabel(item)}</Button>)}
           </div>
         </CardHeader>
         <CardContent>
           {!selectedNode && <EmptyState text="选择左侧节点查看详情" />}
           {selectedNode && tab === 'overview' && <OverviewInspector node={selectedNode} edges={relatedEdges} nodes={nodes} onOpenFile={onOpenFile} />}
+          {selectedNode && tab === 'explain' && <ExplainInspector loading={explainLoading} explanation={explanation} />}
           {selectedNode && tab === 'why' && <WhyInspector nodes={nodes} selectedNode={selectedNode} targetNode={targetNode} targetId={targetId} connection={connection} onTargetChange={setTargetId} />}
           {selectedNode && tab === 'warnings' && <WarningsInspector warnings={selectedWarnings} />}
           {selectedNode && tab === 'code' && <CodeInspector node={selectedNode} onOpenFile={onOpenFile} />}
@@ -120,6 +149,11 @@ function WhyInspector({ nodes, selectedNode, targetNode, targetId, connection, o
       {targetNode && !connection.length && <EmptyState text="未找到关联路径" />}
     </div>
   </div>;
+}
+
+function ExplainInspector({ loading, explanation }: { loading: boolean; explanation: string }) {
+  if (loading) return <EmptyState text="解释生成中，切换节点会取消旧任务。" />;
+  return <div className="rounded-xl border bg-slate-50 p-4 text-sm leading-6 text-slate-700 whitespace-pre-wrap">{explanation || '暂无解释。'}</div>;
 }
 
 function WarningsInspector({ warnings }: { warnings: CodeGraph['warnings'] }) {
@@ -219,6 +253,27 @@ function rebuildPath(previous: Map<string, { nodeId: string; edge: CodeGraphEdge
   return items;
 }
 
+function buildNodeExplanation({ node, edges, nodes, warnings }: { node: CodeGraphNode; edges: CodeGraphEdge[]; nodes: CodeGraphNode[]; warnings: CodeGraph['warnings'] }) {
+  const outgoing = edges.filter((edge) => edge.source === node.id);
+  const incoming = edges.filter((edge) => edge.target === node.id);
+  const byType = edges.reduce<Record<string, number>>((acc, edge) => {
+    acc[edge.type] = (acc[edge.type] || 0) + 1;
+    return acc;
+  }, {});
+  const topTargets = outgoing.slice(0, 5).map((edge) => nodes.find((item) => item.id === edge.target)?.name || edge.target);
+  const topSources = incoming.slice(0, 5).map((edge) => nodes.find((item) => item.id === edge.source)?.name || edge.source);
+  return [
+    `对象：${node.name}（${node.type}）`,
+    node.path ? `位置：${node.path}${node.startLine ? `:${node.startLine}` : ''}` : '',
+    `直接关系：${edges.length} 条；入边 ${incoming.length} 条，出边 ${outgoing.length} 条。`,
+    `关系类型：${Object.entries(byType).map(([type, count]) => `${type}=${count}`).join('，') || '无'}。`,
+    topSources.length ? `主要来源：${topSources.join('、')}` : '主要来源：无',
+    topTargets.length ? `主要指向：${topTargets.join('、')}` : '主要指向：无',
+    warnings.length ? `解析告警：${warnings.length} 条，说明该文件存在未解析调用或导入，影响范围判断需要人工复核。` : '解析告警：无。',
+    '说明：该解释来自当前静态图谱和会话缓存，不会触发 AI 请求。'
+  ].filter(Boolean).join('\n');
+}
+
 function tabLabel(tab: InspectorTab) {
-  return ({ overview: '概览', why: '为什么有关', warnings: '告警', code: '代码' })[tab];
+  return ({ overview: '概览', explain: '解释', why: '为什么有关', warnings: '告警', code: '代码' })[tab];
 }
