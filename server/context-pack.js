@@ -264,6 +264,7 @@ function buildContextMarkdown(scan, chunks, budget, metadata) {
     `Symbols: ${scan.totalSymbols || 0}`,
     `Budget: ${budget.usedChars}/${budget.maxChars} chars`,
     `Graph Related Files: ${(metadata.graphContext?.relatedPaths || []).length}`,
+    `Skipped Files: ${(metadata.skippedFiles || []).length}`,
     '',
     '## Repo Map',
     '',
@@ -280,6 +281,13 @@ function buildContextMarkdown(scan, chunks, budget, metadata) {
     '## Selected Files',
     ''
   ];
+
+  const skippedFiles = metadata.skippedFiles || [];
+  if (skippedFiles.length) {
+    lines.push('## Skipped Files', '');
+    for (const file of skippedFiles) lines.push(`- ${file.path}: ${file.reason}`);
+    lines.push('');
+  }
 
   for (const chunk of chunks) {
     lines.push(

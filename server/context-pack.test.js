@@ -84,4 +84,6 @@ test('buildContextPack excludes sensitive files from AI chunks', async () => {
   assert.deepEqual(pack.skippedFiles.map((file) => file.path).sort(), ['.env', 'src/config.ts']);
   assert.ok(pack.files[0].estimatedTokens > 0);
   assert.ok(pack.budget.estimatedTokens > 0);
+  assert.match(pack.markdown, /Skipped Files: 2/);
+  assert.match(pack.markdown, /## Skipped Files/);
 });
