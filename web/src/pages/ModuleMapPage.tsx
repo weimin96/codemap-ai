@@ -1,6 +1,7 @@
 import { Box, Boxes, FileCode2, Search, ShieldAlert } from 'lucide-react';
 import { EmptyState, PriorityBadge, SectionTitle, StatCard } from '@/components/PageBlocks';
 import { Button } from '@/components/ui/button';
+import { VerificationBadge } from '@/components/VerificationControl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import type { ProjectModule, ProjectPayload, Report } from '@/types';
@@ -52,7 +53,10 @@ export function ModuleMapPage({ payload, report, onOpenModule }: { payload: Proj
                 <div className="mt-1 line-clamp-2 text-sm leading-6 text-slate-600">{module.summary || module.responsibility}</div>
               </div>
             </div>
-            <PriorityBadge priority={module.priority} />
+            <div className="flex flex-col items-end gap-2">
+              <PriorityBadge priority={module.priority} />
+              <VerificationBadge status={module.verificationStatus} />
+            </div>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2 border-t pt-4 text-center text-xs text-muted-foreground">
             <div><div className="font-semibold text-slate-900">{module.entrypoints?.length || module.paths?.length || 0}</div>入口</div>

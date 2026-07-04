@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react';
 import { Code2, FileCheck2, ListChecks, SlidersHorizontal, Target, TriangleAlert } from 'lucide-react';
-import { EmptyState, RiskBadge, SectionTitle } from '@/components/PageBlocks';
+import { ConfidenceBadge, EmptyState, RiskBadge, SectionTitle } from '@/components/PageBlocks';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { VerificationControl } from '@/components/VerificationControl';
+import { VerificationBadge, VerificationControl } from '@/components/VerificationControl';
 import { WhyConnectedPanel } from '@/components/WhyConnectedPanel';
 import { cn } from '@/lib/utils';
 import type { Report, RiskItem, VerificationStatus } from '@/types';
@@ -75,7 +75,10 @@ export function RiskPage({
           {risks.map((risk, index) => {
             const active = selected === risk || selected?.id === risk.id;
             return <button key={risk.id || `${risk.title}-${index}`} type="button" onClick={() => onSelectRisk(risk)} className={cn('grid w-full grid-cols-[1.3fr_80px_120px_1fr_120px] items-center border-b px-4 py-4 text-left text-sm hover:bg-blue-50/40', active && 'bg-blue-50/60')}>
-              <div><div className="font-semibold text-slate-950">{risk.title}</div><div className="mt-1 line-clamp-1 text-xs text-muted-foreground">{risk.reason}</div></div>
+              <div>
+                <div className="flex items-center gap-2"><span className="font-semibold text-slate-950">{risk.title}</span><VerificationBadge status={risk.verificationStatus} /></div>
+                <div className="mt-1 line-clamp-1 text-xs text-muted-foreground">{risk.reason}</div>
+              </div>
               <RiskBadge level={risk.level} />
               <div className="text-slate-600">{categoryLabel(risk.category)}</div>
               <div className="truncate font-mono text-xs text-blue-700">{risk.path || risk.evidence?.[0]?.path || '多处'}{risk.startLine ? `:${risk.startLine}` : ''}</div>
@@ -99,7 +102,7 @@ function RiskDetailPanel({ report, risk, loading, onOpenRiskCode, onUpdateVerifi
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="font-semibold text-slate-950">{risk.title}</div>
-            <div className="mt-2 flex flex-wrap gap-2"><RiskBadge level={risk.level} />{risk.category && <Badge variant="outline">{categoryLabel(risk.category)}</Badge>}{risk.confidence && <Badge variant="secondary">{risk.confidence}</Badge>}</div>
+            <div className="mt-2 flex flex-wrap gap-2"><RiskBadge level={risk.level} /><VerificationBadge status={risk.verificationStatus} />{risk.category && <Badge variant="outline">{categoryLabel(risk.category)}</Badge>}{risk.confidence && <ConfidenceBadge confidence={risk.confidence} />}</div>
           </div>
           <Button size="sm" variant="outline" onClick={() => onOpenRiskCode(risk)}><Code2 size={14} />查看代码</Button>
         </div>

@@ -4,6 +4,7 @@ import { ActionItem } from '@/components/common/ActionItem';
 import { MermaidPanel } from '@/components/MermaidPanel';
 import { EmptyState, PriorityBadge, RiskHint, SectionTitle } from '@/components/PageBlocks';
 import { Button } from '@/components/ui/button';
+import { VerificationBadge } from '@/components/VerificationControl';
 import { Card, CardContent } from '@/components/ui/card';
 import type { PageId } from '@/components/AppShell';
 import type { CoreFlow, FlowStep, Report } from '@/types';
@@ -54,7 +55,10 @@ export function FlowPage({ report, activeFlow, onSelectFlow, onOpenStep, onOpenF
         <SectionTitle title="全部核心链路" description="选择链路后查看图表、步骤和代码证据。" />
         <div className="grid grid-cols-3 gap-3">
           {report?.flows?.map((flow) => <ActionItem key={flow.id || flow.name} onClick={() => onSelectFlow(flow)} className="rounded-xl bg-white p-4 text-sm">
-            <div className="flex items-start justify-between gap-3"><div className="font-semibold text-slate-950">{flow.name}</div><PriorityBadge priority={flow.priority} /></div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="font-semibold text-slate-950">{flow.name}</div>
+              <div className="flex flex-col items-end gap-2"><PriorityBadge priority={flow.priority} /><VerificationBadge status={flow.verificationStatus} /></div>
+            </div>
             <div className="mt-2 line-clamp-2 text-sm text-slate-600">{flow.trigger}</div>
             <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
               <span>{flow.steps.length} 个步骤 · {flow.kind || 'unknown'}</span>
