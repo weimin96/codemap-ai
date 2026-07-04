@@ -4,6 +4,7 @@ import { readTextFileSafe, toPosix } from './fs-utils.js';
 
 const GRAPH_LANGUAGES = new Set(['javascript', 'typescript']);
 const GRAPH_EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
+const IMPORT_EXTENSIONS = [...GRAPH_EXTENSIONS, '.json', '.css', '.scss', '.sass', '.less', '.vue', '.svelte'];
 const MAX_GRAPH_FILE_BYTES = 260_000;
 const MAX_WARNINGS = 200;
 
@@ -18,6 +19,7 @@ export async function buildCodeGraph({ root, scan }) {
   const seenEdges = new Set();
   const symbolById = new Map();
   const symbolsByName = new Map();
+  const importResolver = await buildImportResolver(root, filePathSet);
 
   for (const file of files) addDirectoryChain(file.path, nodes, edges, seenNodes, seenEdges);
 
@@ -46,7 +48,7 @@ export async function buildCodeGraph({ root, scan }) {
     if (!sourceFile) continue;
     const imports = extractImports(sourceFile);
     for (const item of imports) {
-      const targetPath = resolveImportPath(file.path, item.specifier, filePathSet);
+      const targetPath = importResolver(file.path, item.specifier);
       if (!targetPath) {
         pushWarning(warnings, { path: file.path, kind: 'unresolved_import', message: `无法解析导入：${item.specifier}` });
         continue;
@@ -219,12 +221,64 @@ function extractImports(sourceFile) {
   return imports;
 }
 
-function resolveImportPath(fromPath, specifier, filePathSet) {
-  if (!specifier.startsWith('.')) return '';
-  const baseDir = path.posix.dirname(fromPath);
+async function buildImportResolver(root, filePathSet) {
+  const tsconfig = await readTsconfig(root);
+  return (fromPath, specifier) => resolveImportPath(fromPath, specifier, filePathSet, tsconfig);
+}
+
+async function readTsconfig(root) {
+  try {
+    const file = await readTextFileSafe(root, 'tsconfig.json', 80_000);
+    const parsed = JSON.parse(file.content);
+    const compilerOptions = parsed?.compilerOptions || {};
+    return {
+      baseUrl: normalizeCompilerPath(compilerOptions.baseUrl || ''),
+      paths: compilerOptions.paths && typeof compilerOptions.paths === 'object' ? compilerOptions.paths : {}
+    };
+  } catch (_error) {
+    return { baseUrl: '', paths: {} };
+  }
+}
+
+function resolveImportPath(fromPath, specifier, filePathSet, tsconfig) {
+  if (specifier.startsWith('.')) return resolveFromBase(path.posix.dirname(fromPath), specifier, filePathSet);
+  for (const candidate of resolveTsconfigPaths(specifier, tsconfig)) {
+    const resolved = resolveFromBase('', candidate, filePathSet);
+    if (resolved) return resolved;
+  }
+  if (tsconfig.baseUrl) return resolveFromBase(tsconfig.baseUrl, specifier, filePathSet);
+  return '';
+}
+
+function resolveTsconfigPaths(specifier, tsconfig) {
+  const resolved = [];
+  for (const [pattern, targets] of Object.entries(tsconfig.paths || {})) {
+    const targetList = Array.isArray(targets) ? targets : [];
+    const match = matchPathPattern(pattern, specifier);
+    if (match === null) continue;
+    for (const target of targetList) {
+      const replaced = String(target).replace('*', match);
+      resolved.push(toPosix(path.posix.normalize(path.posix.join(tsconfig.baseUrl || '', replaced))));
+    }
+  }
+  return resolved;
+}
+
+function matchPathPattern(pattern, specifier) {
+  if (!pattern.includes('*')) return pattern === specifier ? '' : null;
+  const [prefix, suffix] = pattern.split('*');
+  if (!specifier.startsWith(prefix) || !specifier.endsWith(suffix)) return null;
+  return specifier.slice(prefix.length, specifier.length - suffix.length);
+}
+
+function resolveFromBase(baseDir, specifier, filePathSet) {
   const joined = toPosix(path.posix.normalize(path.posix.join(baseDir, specifier)));
-  const candidates = [joined, ...GRAPH_EXTENSIONS.map((ext) => `${joined}${ext}`), ...GRAPH_EXTENSIONS.map((ext) => `${joined}/index${ext}`)];
+  const candidates = [joined, ...IMPORT_EXTENSIONS.map((ext) => `${joined}${ext}`), ...IMPORT_EXTENSIONS.map((ext) => `${joined}/index${ext}`)];
   return candidates.find((candidate) => filePathSet.has(candidate)) || '';
+}
+
+function normalizeCompilerPath(value) {
+  return toPosix(path.posix.normalize(String(value || '').replace(/\\/g, '/'))).replace(/^\.\//, '');
 }
 
 function extractCalls(sourceFile, startLine, endLine) {

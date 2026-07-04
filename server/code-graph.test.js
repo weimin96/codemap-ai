@@ -54,6 +54,18 @@ test('buildCodeGraph preserves type and constant symbol node kinds', async () =>
   assert.ok(graph.nodes.some((node) => node.name === 'ORDER_KIND' && node.type === 'constant'));
 });
 
+test('buildCodeGraph resolves tsconfig path aliases', async () => {
+  const fixture = await createFixture({
+    'tsconfig.json': JSON.stringify({ compilerOptions: { baseUrl: '.', paths: { '@/*': ['src/*'] } } }),
+    'src/index.ts': "import { runOrder } from '@/services/order';\nexport function start() {\n  runOrder();\n}\n",
+    'src/services/order.ts': "export function runOrder() {\n  return true;\n}\n"
+  });
+
+  const graph = await buildCodeGraph(fixture);
+
+  assert.ok(graph.edges.some((edge) => edge.source === 'file:src/index.ts' && edge.target === 'file:src/services/order.ts' && edge.type === 'imports'));
+});
+
 test('findShortestPath returns an undirected connection path', () => {
   const graph = {
     edges: [
