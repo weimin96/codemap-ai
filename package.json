@@ -27,7 +27,7 @@
     "typecheck": "tsc -p web/tsconfig.json --noEmit",
     "test": "node --test server/*.test.js",
     "test:e2e": "playwright test",
-    "lint": "node --check bin/pfo.js && node --check server/*.js",
+    "lint": "eslint .",
     "pack:local": "npm pack",
     "release:dry-run": "npm pack --dry-run",
     "prepublishOnly": "npm run typecheck && npm run test && npm run build"
@@ -36,9 +36,13 @@
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.61.1",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0"
+    "@types/react-dom": "^19.0.0",
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0",
+    "typescript-eslint": "^8.62.1"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.0",

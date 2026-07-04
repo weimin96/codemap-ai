@@ -85,7 +85,7 @@ npm run dev          # 启动本地工作台
 npm run typecheck    # 前端 TypeScript 类型检查
 npm run test         # 服务端单元测试
 npm run build        # Vite 前端生产构建
-npm run lint         # Node ESM 语法检查
+npm run lint         # ESLint 静态检查
 npm run pack:local   # 本地 npm pack
 ```
 
@@ -232,6 +232,7 @@ API Key 优先可通过环境变量提供。通过页面保存时，配置写入
 - 追问历史已有前端 scope 归档，但追问线程、验证结论、图谱和解释缓存暂未 SQLite 化。
 - `/api/onboarding-docs` 暂未提供前端批量下载按钮。
 - `test:e2e` 已接入 Playwright，包含工作台 smoke 用例；CI 会安装 Chromium 后执行。
+- `lint` 已接入 ESLint；当前关闭了 `preserve-caught-error` 和 `no-useless-escape`，避免把既有错误包装和正则写法变成大范围重构。
 - release workflow 已提供 npm provenance 发布入口，但真实发布依赖仓库配置 `NPM_TOKEN`。
 - 多模型 fallback 已支持 `provider=auto`，但每个 provider 的独立 API Key / model UI 尚未展开。
 - 暂未支持多人协作或远程仓库托管。
