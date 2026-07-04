@@ -148,6 +148,15 @@ codemap-ai /path/to/your/project --port 8088
 codemap-ai /path/to/your/project --no-open
 ```
 
+无 UI 生成上下文包：
+
+```bash
+codemap-ai pack /path/to/your/project --format markdown -o context.md
+codemap-ai pack /path/to/your/project --format json -o context.json
+```
+
+`pack` 会输出 Repo Map、Graph-aware Context Pack、已选文件片段和跳过原因，适合与其他 CLI 或 AI 工具串联。
+
 ## AI providers
 
 打开页面右上角的 AI 设置，填写 Provider、Base URL、Model 和 API Key。
