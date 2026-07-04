@@ -67,6 +67,69 @@ export interface RepoMap {
   modules: Array<{ name: string; fileCount: number; symbolCount: number; priority: Priority; topFiles: string[]; roles: string[] }>;
 }
 
+export interface CodeReference {
+  path: string;
+  symbol?: string;
+  startLine?: number;
+  endLine?: number;
+  reason: string;
+  confidence?: Confidence;
+}
+
+export interface AnalysisQuality {
+  scannedFiles: number;
+  indexedSymbols: number;
+  contextFiles: ContextFile[];
+  skippedFiles: Array<{ path: string; reason: string }>;
+  parseWarnings: Array<{ path: string; reason: string }>;
+  confidence: Confidence;
+  tokenBudget?: {
+    max: number;
+    used: number;
+  };
+}
+
+export interface BusinessCapability {
+  name: string;
+  description: string;
+  importance: 'core' | 'important' | 'supporting';
+  evidence: CodeReference[];
+}
+
+export interface ModuleEntrypoint {
+  name: string;
+  path: string;
+  method?: string;
+  route?: string;
+  kind: string;
+  evidence: CodeReference[];
+}
+
+export interface ModuleDependency {
+  moduleId: string;
+  reason: string;
+  evidence: CodeReference[];
+}
+
+export interface ProjectModule {
+  id?: string;
+  name: string;
+  paths: string[];
+  summary?: string;
+  responsibility: string;
+  responsibilities?: string[];
+  businessCapabilities?: BusinessCapability[];
+  entrypoints?: ModuleEntrypoint[];
+  dependencies?: ModuleDependency[];
+  dataEntities?: string[];
+  coreFlows?: string[];
+  keyFiles?: CodeReference[];
+  risks?: string[];
+  priority: Priority;
+  confidence: Confidence;
+  evidence?: string | CodeReference[];
+}
+
 export interface FlowStep {
   order: number;
   path: string;
@@ -93,6 +156,62 @@ export interface CoreFlow {
   notes?: string[];
   mermaid?: string;
   sequenceDiagram?: string;
+  evidence?: CodeReference[];
+}
+
+export interface DataEntity {
+  id: string;
+  name: string;
+  description: string;
+  moduleId?: string;
+  keyFields?: string[];
+  evidence: CodeReference[];
+}
+
+export interface DataRelation {
+  from: string;
+  to: string;
+  type: string;
+  reason: string;
+  evidence: CodeReference[];
+}
+
+export interface StateMachine {
+  entity: string;
+  field: string;
+  states: string[];
+  transitions: Array<{ from: string; to: string; trigger: string; evidence: CodeReference[] }>;
+}
+
+export interface DataModel {
+  entities: DataEntity[];
+  relations: DataRelation[];
+  stateMachines: StateMachine[];
+  keyFields: Array<{ entity: string; field: string; reason: string; evidence: CodeReference[] }>;
+  risks: Array<{ title: string; reason: string; evidence: CodeReference[] }>;
+}
+
+export interface RiskItem {
+  id?: string;
+  title: string;
+  level: 'high' | 'medium' | 'low';
+  category?: 'permission' | 'state' | 'idempotency' | 'transaction' | 'concurrency' | 'cache' | 'external' | 'test' | 'data' | 'ai-change' | string;
+  moduleId?: string;
+  flowId?: string;
+  path?: string;
+  startLine?: number;
+  endLine?: number;
+  reason: string;
+  impact?: string;
+  verify: string;
+  verifySteps?: string[];
+  suggestedTests?: string[];
+  confidence?: Confidence;
+  evidence?: CodeReference[];
+}
+
+export interface EvidenceIndex {
+  files: CodeReference[];
 }
 
 export interface ProjectPayload {
@@ -119,12 +238,20 @@ export interface Report {
     confidence?: Confidence;
     summary?: string;
   };
-  entrypoints: Array<{ name: string; path: string; kind: string; confidence: Confidence; evidence?: string }>;
-  modules: Array<{ name: string; paths: string[]; responsibility: string; priority: Priority; confidence: Confidence; evidence?: string }>;
+  analysisQuality?: AnalysisQuality;
+  architecture?: {
+    summary?: string;
+    mermaid?: string;
+    evidence?: CodeReference[];
+  };
+  entrypoints: Array<{ name: string; path: string; kind: string; confidence: Confidence; evidence?: string | CodeReference[] }>;
+  modules: ProjectModule[];
   flows: CoreFlow[];
-  risks: Array<{ title: string; level: 'high' | 'medium' | 'low'; path?: string; startLine?: number; endLine?: number; reason: string; verify: string }>;
+  dataModel?: DataModel;
+  risks: RiskItem[];
   readingPlan: Array<{ timebox: string; goal: string; files: string[]; output: string }>;
   unknowns: string[];
+  evidenceIndex?: EvidenceIndex;
   mermaid?: string;
   contextFiles?: ContextFile[];
 }

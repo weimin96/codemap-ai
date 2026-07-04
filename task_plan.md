@@ -17,7 +17,7 @@
 | 阶段 | 状态 | 内容 | 验证 |
 |---|---|---|---|
 | 0 | complete | 建立计划文件并确认现状 | git status |
-| 1 | pending | 报告 schema 增加 analysisQuality、dataModel、evidence，并增强 normalizer | npm run typecheck |
+| 1 | complete | 报告 schema 增加 analysisQuality、dataModel、evidence，并增强 normalizer | npm run typecheck；node --check server |
 | 2 | pending | AppShell 顶部导航化，首页增加 Hero 与分析质量 | npm run typecheck |
 | 3 | pending | 新增 ModuleDetailPage，模块卡片进入详情而非代码页 | npm run typecheck |
 | 4 | pending | AI 分析 prompt 拆成四阶段结构要求，并保留兼容的 /api/analyze 输出 | npm run typecheck |

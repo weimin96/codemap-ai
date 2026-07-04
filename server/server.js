@@ -67,7 +67,10 @@ export async function startServer({ projectDir, port, host }) {
   app.get('/api/project', async (_req, res, next) => {
     try {
       if (!cache.scan) cache.scan = await scanProject(projectDir);
-      if (!cache.report) cache.report = await readProjectReport(projectDir);
+      if (!cache.report) {
+        const storedReport = await readProjectReport(projectDir);
+        cache.report = storedReport ? normalizeReport(storedReport, null, cache.scan) : null;
+      }
       res.json({ projectDir, scan: cache.scan, report: cache.report });
     } catch (error) { next(error); }
   });
@@ -75,7 +78,8 @@ export async function startServer({ projectDir, port, host }) {
   app.post('/api/rescan', async (_req, res, next) => {
     try {
       cache.scan = await scanProject(projectDir);
-      cache.report = await readProjectReport(projectDir);
+      const storedReport = await readProjectReport(projectDir);
+      cache.report = storedReport ? normalizeReport(storedReport, null, cache.scan) : null;
       cache.contextPack = null;
       res.json({ projectDir, scan: cache.scan, report: cache.report });
     } catch (error) { next(error); }
@@ -89,7 +93,7 @@ export async function startServer({ projectDir, port, host }) {
       await deleteProjectReport(projectDir);
       cache.contextPack = await buildContextPack({ root: projectDir, scan: cache.scan });
       const report = await analyzeWithAI({ scan: cache.scan, chunks: cache.contextPack.chunks, contextPack: cache.contextPack, config });
-      cache.report = normalizeReport(report, cache.contextPack);
+      cache.report = normalizeReport(report, cache.contextPack, cache.scan);
       await writeProjectReport(projectDir, cache.report);
       res.json({ report: cache.report, contextPack: summarizeContextPack(cache.contextPack) });
     } catch (error) { next(error); }
