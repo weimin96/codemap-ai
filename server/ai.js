@@ -1,8 +1,8 @@
-import { generateText } from 'ai';
-import { z } from 'zod';
+import { generateObject, generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOllama } from 'ollama-ai-provider-v2';
+import { AnalysisReportSchema, AskAnswerSchema, OverviewStageSchema, ModulesStageSchema, FlowsStageSchema, RisksStageSchema } from './ai-schemas.js';
 
 globalThis.AI_SDK_LOG_WARNINGS = false;
 
@@ -56,27 +56,31 @@ function defaultBaseURL(provider) {
 
 export async function analyzeWithAI({ scan, chunks, contextPack, config, signal }) {
   const prompt = buildAnalyzePrompt(scan, chunks, contextPack);
-  const result = await generateTextWithFallback({
+  const result = await generateStructuredWithFallback({
     config,
     system: SYSTEM_PROMPT,
     prompt,
     temperature: 0.15,
-    signal
+    signal,
+    schema: AnalysisReportSchema,
+    schemaName: 'ProjectAnalysisReport',
+    expectedSchema: 'project analysis report JSON'
   });
-  const parsed = await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema: 'project analysis report JSON', timeoutMs: result.timeoutMs, signal });
-  return validateAnalysisReport(parsed);
+  return validateAnalysisReport(withParseWarnings(result.object, result.parseWarnings));
 }
 
 export async function askWithAI({ question, context, config }) {
   const prompt = buildAskPrompt(question, context);
-  const result = await generateTextWithFallback({
+  const result = await generateStructuredWithFallback({
     config,
     system: ASK_SYSTEM_PROMPT,
     prompt,
-    temperature: 0.2
+    temperature: 0.2,
+    schema: AskAnswerSchema,
+    schemaName: 'AskAnswer',
+    expectedSchema: 'ask answer JSON'
   });
-  const parsed = await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema: 'ask answer JSON', timeoutMs: result.timeoutMs });
-  return validateAskAnswer(parsed);
+  return validateAskAnswer(result.object);
 }
 
 export async function analyzeOverviewWithAI({ scan, contextPack, config, signal }) {
@@ -85,6 +89,8 @@ export async function analyzeOverviewWithAI({ scan, contextPack, config, signal 
     signal,
     prompt: buildOverviewPrompt(scan, contextPack),
     expectedSchema: 'overview analysis JSON',
+    schemaName: 'OverviewAnalysis',
+    schema: OverviewStageSchema,
     validate: validateOverviewStage
   });
 }
@@ -95,6 +101,8 @@ export async function analyzeModulesWithAI({ scan, contextPack, candidates, conf
     signal,
     prompt: buildModulesPrompt(scan, contextPack, candidates),
     expectedSchema: 'modules analysis JSON',
+    schemaName: 'ModulesAnalysis',
+    schema: ModulesStageSchema,
     validate: validateModulesStage
   });
 }
@@ -105,6 +113,8 @@ export async function analyzeFlowsWithAI({ scan, contextPack, candidates, module
     signal,
     prompt: buildFlowsPrompt(scan, contextPack, candidates, modules),
     expectedSchema: 'flows analysis JSON',
+    schemaName: 'FlowsAnalysis',
+    schema: FlowsStageSchema,
     validate: validateFlowsStage
   });
 }
@@ -115,31 +125,56 @@ export async function analyzeRisksWithAI({ scan, contextPack, overview, modules,
     signal,
     prompt: buildRisksPrompt(scan, contextPack, overview, modules, flows),
     expectedSchema: 'risks analysis JSON',
+    schemaName: 'RisksAnalysis',
+    schema: RisksStageSchema,
     validate: validateRisksStage
   });
 }
 
-async function generateStageJson({ config, signal, prompt, expectedSchema, validate }) {
-  const result = await generateTextWithFallback({
+async function generateStageJson({ config, signal, prompt, expectedSchema, schemaName, schema, validate }) {
+  const result = await generateStructuredWithFallback({
     config,
     system: SYSTEM_PROMPT,
     prompt,
     temperature: 0.12,
-    signal
+    signal,
+    schema,
+    schemaName,
+    expectedSchema
   });
-  const parsed = await parseJsonResultWithRepair({ text: result.text, model: result.model, expectedSchema, timeoutMs: result.timeoutMs, signal });
-  return validate(parsed);
+  return validate(withParseWarnings(result.object, result.parseWarnings));
 }
 
-async function generateTextWithFallback({ config, system, prompt, temperature, signal }) {
+async function generateStructuredWithFallback({ config, system, prompt, temperature, signal, schema, schemaName, expectedSchema }) {
   const candidates = modelConfigCandidates(config);
   const timeoutMs = resolveAiTimeoutMs(config);
   const errors = [];
   for (const candidate of candidates) {
     const model = modelFromConfig(candidate);
+    const parseWarnings = [];
     try {
-      const result = await generateTextWithTimeout({ model, system, prompt, temperature }, timeoutMs, signal);
-      return { ...result, model, provider: candidate.provider, timeoutMs };
+      const result = await generateObjectWithTimeout({
+        model,
+        system,
+        prompt,
+        temperature,
+        schema,
+        schemaName,
+        experimental_repairText: async ({ text, error }) => {
+          parseWarnings.push(`structured_output_repair: ${error instanceof Error ? error.message : String(error)}`);
+          const repair = await generateTextWithTimeout({
+            model,
+            system: JSON_REPAIR_SYSTEM_PROMPT,
+            prompt: buildJsonRepairPrompt({ text, expectedSchema, error }),
+            temperature: 0
+          }, timeoutMs, signal);
+          const repairedText = repair.text || '';
+          const diffWarning = compareRepairKeys(text, repairedText);
+          if (diffWarning) parseWarnings.push(diffWarning);
+          return repairedText;
+        }
+      }, timeoutMs, signal);
+      return { ...result, object: withParseWarnings(result.object, parseWarnings), model, provider: candidate.provider, timeoutMs, parseWarnings };
     } catch (error) {
       errors.push(`${candidate.provider}: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -147,16 +182,30 @@ async function generateTextWithFallback({ config, system, prompt, temperature, s
   throw new Error(`All AI providers failed: ${errors.join(' | ')}`);
 }
 
+async function generateObjectWithTimeout(args, timeoutMs, externalSignal) {
+  return await runAiCallWithTimeout((signal) => generateObject({ ...args, abortSignal: signal }), timeoutMs, externalSignal);
+}
+
 async function generateTextWithTimeout(args, timeoutMs, externalSignal) {
+  return await runAiCallWithTimeout((signal) => generateText({ ...args, abortSignal: signal }), timeoutMs, externalSignal);
+}
+
+async function runAiCallWithTimeout(call, timeoutMs, externalSignal) {
   const controller = new AbortController();
+  let timedOut = false;
   const onAbort = () => controller.abort();
   if (externalSignal?.aborted) controller.abort();
   externalSignal?.addEventListener?.('abort', onAbort, { once: true });
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   try {
-    return await generateText({ ...args, abortSignal: controller.signal });
+    return await call(controller.signal);
   } catch (error) {
-    if (controller.signal.aborted) throw new Error(`AI request timed out after ${timeoutMs}ms`);
+    if (controller.signal.aborted) {
+      throw new Error(timedOut ? `AI request timed out after ${timeoutMs}ms` : 'AI request was cancelled.');
+    }
     throw error;
   } finally {
     clearTimeout(timeout);
@@ -463,61 +512,6 @@ function formatCodeChunks(chunks, perFileLimit) {
   }).join('\n\n');
 }
 
-const ConfidenceSchema = z.enum(['fact', 'guess', 'unknown']);
-const CodeReferenceSchema = z.object({
-  path: z.string().min(1),
-  symbol: z.string().optional(),
-  startLine: z.number().int().positive().optional(),
-  endLine: z.number().int().positive().optional(),
-  reason: z.string().min(1),
-  confidence: ConfidenceSchema
-});
-
-const ReportSchema = z.object({
-  generatedBy: z.string().optional(),
-  projectOverview: z.object({}).passthrough(),
-  analysisQuality: z.object({}).passthrough().optional(),
-  architecture: z.object({}).passthrough().optional(),
-  entrypoints: z.array(z.object({}).passthrough()).optional(),
-  modules: z.array(z.object({}).passthrough()),
-  flows: z.array(z.object({}).passthrough()),
-  dataModel: z.object({}).passthrough().optional(),
-  risks: z.array(z.object({}).passthrough()),
-  readingPlan: z.array(z.object({}).passthrough()).optional(),
-  unknowns: z.array(z.any()).optional(),
-  evidenceIndex: z.object({}).passthrough().optional(),
-  mermaid: z.string().optional()
-}).passthrough();
-
-const AskAnswerSchema = z.object({
-  conclusion: z.string().min(1),
-  evidence: z.array(CodeReferenceSchema),
-  risks: z.array(z.string()),
-  nextActions: z.array(z.string()),
-  relatedFiles: z.array(CodeReferenceSchema),
-  confidence: ConfidenceSchema,
-  markdown: z.string()
-});
-
-const StageObject = z.object({}).passthrough();
-const OverviewStageSchema = z.object({
-  projectOverview: StageObject.optional(),
-  architecture: StageObject.optional(),
-  entrypoints: z.array(StageObject).optional(),
-  readingPlan: z.array(StageObject).optional(),
-  unknowns: z.array(z.any()).optional(),
-  mermaid: z.string().optional()
-}).passthrough();
-const ModulesStageSchema = z.object({ modules: z.array(StageObject).optional() }).passthrough();
-const FlowsStageSchema = z.object({ flows: z.array(StageObject).optional() }).passthrough();
-const RisksStageSchema = z.object({
-  risks: z.array(StageObject).optional(),
-  dataModel: StageObject.optional(),
-  unknowns: z.array(z.any()).optional(),
-  readingPlan: z.array(StageObject).optional(),
-  evidenceIndex: StageObject.optional()
-}).passthrough();
-
 export function parseAnalysisReport(text) {
   return validateAnalysisReport(parseJsonResult(text));
 }
@@ -527,7 +521,7 @@ export function parseAskAnswer(text) {
 }
 
 export function validateAnalysisReport(value) {
-  const checked = ReportSchema.safeParse(value);
+  const checked = AnalysisReportSchema.safeParse(value);
   if (checked.success) return checked.data;
   const report = value && typeof value === 'object' && !Array.isArray(value) ? { ...value } : {};
   report.projectOverview = report.projectOverview && typeof report.projectOverview === 'object' && !Array.isArray(report.projectOverview) ? report.projectOverview : {};
@@ -544,43 +538,88 @@ export function validateAnalysisReport(value) {
 
 export function validateOverviewStage(value) {
   const checked = OverviewStageSchema.safeParse(value);
-  const stage = checked.success && checked.data && typeof checked.data === 'object' ? checked.data : {};
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const stage = checked.success && checked.data && typeof checked.data === 'object' ? checked.data : source;
+  const parseWarnings = stageWarnings(checked, source);
   return {
     projectOverview: objectOrEmpty(stage.projectOverview),
     architecture: objectOrEmpty(stage.architecture),
     entrypoints: Array.isArray(stage.entrypoints) ? stage.entrypoints : [],
     readingPlan: Array.isArray(stage.readingPlan) ? stage.readingPlan : [],
     unknowns: Array.isArray(stage.unknowns) ? stage.unknowns : [],
-    mermaid: typeof stage.mermaid === 'string' ? stage.mermaid : ''
+    mermaid: typeof stage.mermaid === 'string' ? stage.mermaid : '',
+    parseWarnings
   };
 }
 
 export function validateModulesStage(value) {
   const checked = ModulesStageSchema.safeParse(value);
-  const stage = checked.success && checked.data && typeof checked.data === 'object' ? checked.data : {};
-  return { modules: Array.isArray(stage.modules) ? stage.modules : [] };
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const stage = checked.success && checked.data && typeof checked.data === 'object' ? checked.data : source;
+  return { modules: Array.isArray(stage.modules) ? stage.modules : [], parseWarnings: stageWarnings(checked, source) };
 }
 
 export function validateFlowsStage(value) {
   const checked = FlowsStageSchema.safeParse(value);
-  const stage = checked.success && checked.data && typeof checked.data === 'object' ? checked.data : {};
-  return { flows: Array.isArray(stage.flows) ? stage.flows : [] };
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const stage = checked.success && checked.data && typeof checked.data === 'object' ? checked.data : source;
+  return { flows: Array.isArray(stage.flows) ? stage.flows : [], parseWarnings: stageWarnings(checked, source) };
 }
 
 export function validateRisksStage(value) {
   const checked = RisksStageSchema.safeParse(value);
-  const stage = checked.success && checked.data && typeof checked.data === 'object' ? checked.data : {};
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const stage = checked.success && checked.data && typeof checked.data === 'object' ? checked.data : source;
   return {
     risks: Array.isArray(stage.risks) ? stage.risks : [],
     dataModel: objectOrEmpty(stage.dataModel),
     unknowns: Array.isArray(stage.unknowns) ? stage.unknowns : [],
     readingPlan: Array.isArray(stage.readingPlan) ? stage.readingPlan : [],
-    evidenceIndex: objectOrEmpty(stage.evidenceIndex)
+    evidenceIndex: objectOrEmpty(stage.evidenceIndex),
+    parseWarnings: stageWarnings(checked, source)
   };
 }
 
 function objectOrEmpty(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function stageWarnings(checked, source) {
+  const existing = Array.isArray(source.parseWarnings) ? source.parseWarnings : [];
+  if (checked.success) return existing;
+  return [...existing, ...checked.error.issues.map((issue) => `schema: ${issue.path.join('.') || '<root>'} ${issue.message}`)];
+}
+
+function withParseWarnings(value, parseWarnings = []) {
+  if (!parseWarnings.length || !value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const next = { ...value };
+  if ('analysisQuality' in next || 'modules' in next || 'flows' in next || 'risks' in next) {
+    const analysisQuality = objectOrEmpty(next.analysisQuality);
+    next.analysisQuality = {
+      ...analysisQuality,
+      parseWarnings: [...(Array.isArray(analysisQuality.parseWarnings) ? analysisQuality.parseWarnings : []), ...parseWarnings]
+    };
+    return next;
+  }
+  next.parseWarnings = [...(Array.isArray(next.parseWarnings) ? next.parseWarnings : []), ...parseWarnings];
+  return next;
+}
+
+function compareRepairKeys(originalText, repairedText) {
+  const original = safeParseJson(originalText);
+  const repaired = safeParseJson(repairedText);
+  if (!original || !repaired || typeof original !== 'object' || typeof repaired !== 'object' || Array.isArray(original) || Array.isArray(repaired)) return '';
+  const originalKeys = Object.keys(original).sort().join(',');
+  const repairedKeys = Object.keys(repaired).sort().join(',');
+  return originalKeys === repairedKeys ? '' : `structured_output_repair_changed_keys: ${originalKeys || '<none>'} -> ${repairedKeys || '<none>'}`;
+}
+
+function safeParseJson(text) {
+  try {
+    return parseJsonResult(text);
+  } catch {
+    return null;
+  }
 }
 
 export function validateAskAnswer(value) {
