@@ -17,6 +17,7 @@
     "server/code-graph.js",
     "server/config-crypto.js",
     "server/config-store.js",
+    "server/course-builder.js",
     "server/context-enrichment.js",
     "server/context-pack.js",
     "server/document-exporter.js",

@@ -15,6 +15,7 @@ import { redactAiInput } from './redaction.js';
 import { readProjectReport, writeProjectReport } from './report-store.js';
 import { buildCodeGraph, findShortestPath } from './code-graph.js';
 import { buildDocumentSet } from './document-exporter.js';
+import { buildCourseExport, buildCourseMaterials } from './course-builder.js';
 import { updateVerification } from './verification.js';
 import { readExplainCache, recordAskThread, recordCodeGraph, recordExplainCache, recordReport, recordScanRun, recordVerification } from './sqlite-store.js';
 
@@ -176,16 +177,22 @@ export async function startServer({ projectDir, port, host, serveWeb = true, acc
 
   app.get('/api/onboarding-docs', async (_req, res, next) => {
     try {
-      if (!cache.scan) cache.scan = await scanProject(projectDir);
-      if (!cache.report) {
-        const storedReport = await readProjectReport(projectDir);
-        cache.report = storedReport ? normalizeReport(storedReport, null, cache.scan) : null;
-      }
-      if (!cache.codeGraph) {
-        cache.codeGraph = await buildCodeGraph({ root: projectDir, scan: cache.scan });
-        await recordCodeGraph(projectDir, cache.codeGraph);
-      }
+      await ensureAnalysisArtifacts({ projectDir, cache });
       res.json(buildDocumentSet({ report: cache.report, scan: cache.scan, codeGraph: cache.codeGraph }));
+    } catch (error) { next(error); }
+  });
+
+  app.get('/api/course-materials', async (_req, res, next) => {
+    try {
+      await ensureAnalysisArtifacts({ projectDir, cache });
+      res.json(await buildCourseMaterials({ root: projectDir, report: cache.report, scan: cache.scan, codeGraph: cache.codeGraph }));
+    } catch (error) { next(error); }
+  });
+
+  app.get('/api/onboarding-course', async (_req, res, next) => {
+    try {
+      await ensureAnalysisArtifacts({ projectDir, cache });
+      res.json(await buildCourseExport({ root: projectDir, report: cache.report, scan: cache.scan, codeGraph: cache.codeGraph }));
     } catch (error) { next(error); }
   });
 
@@ -423,6 +430,18 @@ function formatExplainAnswer(answer) {
     answer.nextSteps?.length ? `下一步：${answer.nextSteps.join('；')}` : '',
     answer.risks?.length ? `风险：${answer.risks.join('；')}` : ''
   ].filter(Boolean).join('\n\n');
+}
+
+async function ensureAnalysisArtifacts({ projectDir, cache }) {
+  if (!cache.scan) cache.scan = await scanProject(projectDir);
+  if (!cache.report) {
+    const storedReport = await readProjectReport(projectDir);
+    cache.report = storedReport ? normalizeReport(storedReport, null, cache.scan) : null;
+  }
+  if (!cache.codeGraph) {
+    cache.codeGraph = await buildCodeGraph({ root: projectDir, scan: cache.scan });
+    await recordCodeGraph(projectDir, cache.codeGraph);
+  }
 }
 
 async function mergeRuntimeConfig(bodyConfig) {
