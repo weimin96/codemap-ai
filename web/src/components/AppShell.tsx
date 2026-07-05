@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Bot, Boxes, BrainCircuit, CheckCircle2, Code2, Database, FileClock, FileText, GitFork, Home, KeyRound, Map, RefreshCw, Route, Settings, ShieldAlert, Sparkles, TriangleAlert, X } from 'lucide-react';
+import { Bot, Boxes, BrainCircuit, CheckCircle2, Code2, Database, FileClock, FileText, GitFork, GraduationCap, Home, KeyRound, Map, RefreshCw, Route, Settings, ShieldAlert, Sparkles, TriangleAlert, X } from 'lucide-react';
 import { BrandMark } from '@/components/BrandMark';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import type { AiConfig, CodeGraph, Notice, ProjectPayload, Report } from '@/types';
 import type { AnalysisProgress } from '@/hooks/useWorkbenchData';
 
-export type PageId = 'overview' | 'modules' | 'module-detail' | 'flows' | 'flow-detail' | 'data' | 'risks' | 'graph' | 'code' | 'history';
+export type PageId = 'overview' | 'modules' | 'module-detail' | 'flows' | 'flow-detail' | 'data' | 'risks' | 'graph' | 'course' | 'code' | 'history';
 
 const navItems: Array<{ id: PageId; label: string; icon: typeof Home }> = [
   { id: 'overview', label: '项目总览', icon: Home },
@@ -17,6 +17,7 @@ const navItems: Array<{ id: PageId; label: string; icon: typeof Home }> = [
   { id: 'data', label: '数据模型', icon: Database },
   { id: 'risks', label: '风险雷达', icon: ShieldAlert },
   { id: 'graph', label: '代码图谱', icon: GitFork },
+  { id: 'course', label: '学习课程', icon: GraduationCap },
   { id: 'code', label: '代码浏览器', icon: Code2 },
   { id: 'history', label: '追问历史', icon: FileClock }
 ];

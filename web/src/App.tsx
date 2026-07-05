@@ -9,6 +9,7 @@ import type { CodeReference, CoreFlow, FlowStep, ProjectModule, RiskItem, Symbol
 const AskPanel = lazy(() => import('@/components/AskPanel').then((module) => ({ default: module.AskPanel })));
 const CodeWorkspace = lazy(() => import('@/components/CodeWorkspace').then((module) => ({ default: module.CodeWorkspace })));
 const CodeGraphPage = lazy(() => import('@/pages/CodeGraphPage').then((module) => ({ default: module.CodeGraphPage })));
+const CoursePage = lazy(() => import('@/pages/CoursePage').then((module) => ({ default: module.CoursePage })));
 const DataModelPage = lazy(() => import('@/pages/DataModelPage').then((module) => ({ default: module.DataModelPage })));
 const FlowDetailPage = lazy(() => import('@/pages/FlowDetailPage').then((module) => ({ default: module.FlowDetailPage })));
 const FlowPage = lazy(() => import('@/pages/FlowPage').then((module) => ({ default: module.FlowPage })));
@@ -52,6 +53,20 @@ export default function App() {
     for (const name of names) zip.file(name, data?.docs?.[name] || '');
     const blob = await zip.generateAsync({ type: 'blob' });
     downloadBlob('codemap-ai-onboarding-docs.zip', blob);
+  }
+
+  async function exportOnboardingCourse() {
+    const response = await fetch('/api/onboarding-course');
+    const data = await response.json().catch(() => null) as { names?: string[]; docs?: Record<string, string>; error?: string } | null;
+    if (!response.ok || data?.error) {
+      throw new Error(data?.error || `导出学习课程失败：${response.status}`);
+    }
+    const names = data?.names || Object.keys(data?.docs || {});
+    const JSZip = (await import('jszip')).default;
+    const zip = new JSZip();
+    for (const name of names) zip.file(name, data?.docs?.[name] || '');
+    const blob = await zip.generateAsync({ type: 'blob' });
+    downloadBlob('codemap-ai-course.zip', blob);
   }
 
   function openFlowStep(step: FlowStep) {
@@ -140,6 +155,7 @@ export default function App() {
       {activePage === 'data' && <DataModelPage payload={workbench.payload} report={workbench.report} loading={verificationLoading} onUpdateVerification={changeVerification} />}
       {activePage === 'risks' && <RiskPage report={workbench.report} activeRisk={workbench.activeRisk} loading={verificationLoading} onSelectRisk={workbench.setActiveRisk} onOpenRiskCode={openRiskCode} onUpdateVerification={changeVerification} />}
       {activePage === 'graph' && <CodeGraphPage graph={workbench.codeGraph} report={workbench.report} config={workbench.config} currentFile={workbench.currentFile} currentSymbol={workbench.currentSymbol} activeFlow={workbench.activeFlow} activeRisk={workbench.activeRisk} loading={workbench.loading} onLoadGraph={workbench.loadCodeGraph} onOpenFile={openGraphFile} />}
+      {activePage === 'course' && <CoursePage report={workbench.report} onExportCourse={() => { void exportOnboardingCourse(); }} />}
       {activePage === 'history' && <HistoryPage report={workbench.report} askThreads={workbench.askThreads} />}
       {activePage === 'code' && <div className="flex min-h-[720px] flex-col gap-3 xl:h-[calc(100vh-260px)]">
         <div className="flex justify-end">

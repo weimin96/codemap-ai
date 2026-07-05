@@ -262,6 +262,71 @@ export interface RiskItem extends VerificationFields {
   evidence?: CodeReference[];
 }
 
+export interface ScenarioQuiz {
+  type: 'scenario' | string;
+  question: string;
+  options: string[];
+  answerIndex: number;
+  explanation: string;
+}
+
+export interface CourseSnippet {
+  path: string;
+  startLine: number;
+  endLine: number;
+  purpose: string;
+  code: string;
+  confidence?: Confidence;
+}
+
+export interface CodeTranslationBlock {
+  path: string;
+  startLine: number;
+  endLine: number;
+  code: string;
+  plainEnglish: string[];
+  roleInFlow: string;
+}
+
+export interface ModuleBrief {
+  id: string;
+  title: string;
+  openingHook: string;
+  whyCare: string;
+  actors: string[];
+  snippets: CourseSnippet[];
+  quizIdeas: ScenarioQuiz[];
+  riskLinks?: string[];
+  flowLinks?: string[];
+}
+
+export interface CourseModule {
+  id: string;
+  title: string;
+  briefId: string;
+  userAction: string;
+  whyCare: string;
+  coreFiles: string[];
+  flows: string[];
+  risks: string[];
+  codeTranslations: CodeTranslationBlock[];
+  quiz: ScenarioQuiz[];
+}
+
+export interface CourseMaterials {
+  version: string;
+  generatedAt: string;
+  projectName: string;
+  courseModules: CourseModule[];
+  moduleBriefs: ModuleBrief[];
+  evidenceSummary: {
+    files: number;
+    symbols: number;
+    graphNodes: number;
+    graphEdges: number;
+  };
+}
+
 export interface EvidenceIndex {
   files: CodeReference[];
 }
