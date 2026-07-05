@@ -48,6 +48,8 @@
     "typecheck": "tsc -p web/tsconfig.json --noEmit",
     "test": "node --test server/*.test.js",
     "test:e2e": "playwright test",
+    "ci": "node scripts/ci.mjs",
+    "ci:full": "node scripts/ci.mjs --e2e --pack",
     "lint": "eslint .",
     "pack:local": "npm pack",
     "release:dry-run": "npm pack --dry-run",

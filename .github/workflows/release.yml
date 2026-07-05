@@ -39,17 +39,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm run test
-
-      - name: Build
-        run: npm run build
+      - name: Verify
+        run: pnpm run ci
 
       - name: Pack dry run
-        run: npm run release:dry-run
+        run: pnpm run release:dry-run
 
       - name: Publish to npm with provenance
         run: npm publish --access public --provenance
