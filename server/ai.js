@@ -563,8 +563,12 @@ function formatContextFiles(contextPack) {
 function formatCodeChunks(chunks, perFileLimit) {
   return chunks.map((chunk) => {
     const symbols = (chunk.symbols || []).slice(0, 16).map((symbol) => `${symbol.kind} ${symbol.name} L${symbol.startLine}-${symbol.endLine}: ${symbol.signature || ''}`).join('\n');
-    return `--- FILE: ${chunk.path}\nROLE: ${chunk.role}\nLANG: ${chunk.language}\nSYMBOLS:\n${symbols || '-'}\n${String(chunk.content || '').slice(0, perFileLimit)}`;
+    return `FILE_BLOCK_BEGIN path=${safeBlockValue(chunk.path)} role=${safeBlockValue(chunk.role)} language=${safeBlockValue(chunk.language)}\nSYMBOLS:\n${symbols || '-'}\nCONTENT:\n${String(chunk.content || '').slice(0, perFileLimit)}\nFILE_BLOCK_END`;
   }).join('\n\n');
+}
+
+function safeBlockValue(value) {
+  return String(value || '').replaceAll('\n', '_').replaceAll('\r', '_').replaceAll('=', '_');
 }
 
 export function parseAnalysisReport(text) {
