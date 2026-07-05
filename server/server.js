@@ -251,16 +251,25 @@ export async function startServer({ projectDir, port, host, serveWeb = true, acc
       const { scopeKey, mode = 'selected', node, relatedEdges = [], warnings = [], businessLinks = {}, config: bodyConfig = {} } = req.body || {};
       if (!scopeKey) throw new Error('scopeKey is required');
       if (!node?.id) throw new Error('node is required');
-      const cached = await readExplainCache(projectDir, scopeKey);
-      if (cached?.explanation) return res.json({ cached: true, explanation: cached.explanation, answer: cached.answer || null });
       const config = await mergeRuntimeConfig(bodyConfig);
+      if (!cache.scan) {
+        cache.scan = await scanProject(projectDir);
+        await recordScanRun(projectDir, cache.scan);
+      }
+      if (!cache.codeGraph) {
+        cache.codeGraph = await buildCodeGraph({ root: projectDir, scan: cache.scan });
+        await recordCodeGraph(projectDir, cache.codeGraph);
+      }
+      const versionedScopeKey = buildExplainCacheKey({ scopeKey, mode, node, relatedEdges, warnings, businessLinks, config, scan: cache.scan, codeGraph: cache.codeGraph });
+      const cached = await readExplainCache(projectDir, versionedScopeKey);
+      if (cached?.explanation) return res.json({ cached: true, explanation: cached.explanation, answer: cached.answer || null });
       const question = buildExplainQuestion(node, mode);
       const context = { mode, node, relatedEdges, warnings, businessLinks };
       const safeInput = redactAiInput({ question, context });
       const answer = await askWithAI({ question: safeInput.question, context: safeInput.context, config });
       const explanation = formatExplainAnswer(answer);
-      const payload = { explanation, answer, node, relatedEdges, warnings, businessLinks, generatedAt: new Date().toISOString() };
-      await recordExplainCache(projectDir, { scopeKey, payload });
+      const payload = { explanation, answer, node, relatedEdges, warnings, businessLinks, generatedAt: new Date().toISOString(), scopeKey, versionedScopeKey };
+      await recordExplainCache(projectDir, { scopeKey: versionedScopeKey, payload });
       res.json({ cached: false, explanation, answer });
     } catch (error) { next(error); }
   });
@@ -362,6 +371,39 @@ async function pathExists(targetPath) {
     if (error?.code === 'ENOENT') return false;
     throw error;
   }
+}
+
+function buildExplainCacheKey({ scopeKey, mode, node, relatedEdges, warnings, businessLinks, config, scan, codeGraph }) {
+  return `${scopeKey}:${stableHash({
+    scan: scan?.repoMap?.totals || { files: scan?.totalFiles || scan?.files?.length || 0, symbols: scan?.totalSymbols || 0 },
+    graph: { nodes: codeGraph?.nodes?.length || 0, edges: codeGraph?.edges?.length || 0, warnings: codeGraph?.warnings?.length || 0 },
+    node: { id: node?.id, path: node?.path, startLine: node?.startLine, endLine: node?.endLine },
+    mode,
+    relatedEdges,
+    warnings,
+    businessLinks,
+    provider: config?.provider,
+    model: config?.model,
+    promptVersion: 'explain-v2'
+  })}`;
+}
+
+function stableHash(value) {
+  const text = stableStringify(value);
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return '[' + value.map(stableStringify).join(',') + ']';
+  if (value && typeof value === 'object') {
+    return '{' + Object.keys(value).sort().map((key) => JSON.stringify(key) + ':' + stableStringify(value[key])).join(',') + '}';
+  }
+  return JSON.stringify(value);
 }
 
 function buildExplainQuestion(node, mode = 'selected') {
