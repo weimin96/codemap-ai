@@ -2,6 +2,7 @@ import { analyzeFlowsWithAI, analyzeModulesWithAI, analyzeOverviewWithAI, analyz
 import { buildCodeGraph } from './code-graph.js';
 import { buildContextPack } from './context-pack.js';
 import { normalizeReport, summarizeContextPack } from './report-normalizer.js';
+import { verifyReportEvidence } from './evidence-verifier.js';
 import { scanProject } from './scanner.js';
 import { deleteProjectReport, writeProjectReport } from './report-store.js';
 import { recordCodeGraph, recordReport, recordScanRun } from './sqlite-store.js';
@@ -43,7 +44,7 @@ export async function runAnalysisJob({ projectDir, cache, config, signal, onProg
   stagePacks.push(overviewPack);
   const overview = await analyzeOverviewWithAI({ scan: cache.scan, contextPack: overviewPack, config, signal });
   stageState.overview = overview;
-  emitPartial('overview', stageState, stagePacks, cache.scan, onPartial);
+  await emitPartial(projectDir, 'overview', stageState, stagePacks, cache.scan, onPartial);
   assertActive();
 
   const moduleCandidates = selectModuleCandidates(cache.scan);
@@ -58,7 +59,7 @@ export async function runAnalysisJob({ projectDir, cache, config, signal, onProg
     const result = await analyzeModulesWithAI({ scan: cache.scan, contextPack: modulePack, candidates: batch, config, signal });
     modules.push(...result.modules);
     stageState.modules = modules;
-    emitPartial('modules', stageState, stagePacks, cache.scan, onPartial);
+    await emitPartial(projectDir, 'modules', stageState, stagePacks, cache.scan, onPartial);
     assertActive();
   }
 
@@ -74,7 +75,7 @@ export async function runAnalysisJob({ projectDir, cache, config, signal, onProg
     const result = await analyzeFlowsWithAI({ scan: cache.scan, contextPack: flowPack, candidates: batch, modules, config, signal });
     flows.push(...result.flows);
     stageState.flows = flows;
-    emitPartial('flows', stageState, stagePacks, cache.scan, onPartial);
+    await emitPartial(projectDir, 'flows', stageState, stagePacks, cache.scan, onPartial);
     assertActive();
   }
 
@@ -83,21 +84,21 @@ export async function runAnalysisJob({ projectDir, cache, config, signal, onProg
   stagePacks.push(riskPack);
   const riskResult = await analyzeRisksWithAI({ scan: cache.scan, contextPack: riskPack, overview, modules, flows, config, signal });
   stageState.riskResult = riskResult;
-  emitPartial('risks', stageState, stagePacks, cache.scan, onPartial);
+  await emitPartial(projectDir, 'risks', stageState, stagePacks, cache.scan, onPartial);
   assertActive();
 
   emit('merge', '合并阶段结果', 94);
   const mergedContextPack = mergeContextPacks(stagePacks);
   cache.contextPack = mergedContextPack;
   const mergedReport = mergeStageReport({ overview, modules, flows, riskResult });
-  cache.report = normalizeReport(mergedReport, mergedContextPack, cache.scan);
+  cache.report = await verifyReportEvidence({ root: projectDir, scan: cache.scan, report: normalizeReport(mergedReport, mergedContextPack, cache.scan) });
   await writeProjectReport(projectDir, cache.report);
   await recordReport(projectDir, cache.report);
   emit('done', '完成', 100);
   return { report: cache.report, contextPack: summarizeContextPack(mergedContextPack) };
 }
 
-export function buildPartialReport({ stage, state, contextPack, scan }) {
+export async function buildPartialReport({ root, stage, state, contextPack, scan }) {
   const report = normalizeReport(mergeStageReport(state), contextPack, scan);
   report.generatedBy = 'ai-staged-partial';
   report.analysisQuality = {
@@ -106,7 +107,7 @@ export function buildPartialReport({ stage, state, contextPack, scan }) {
     partial: true,
     confidence: report.analysisQuality?.confidence || 'guess'
   };
-  return report;
+  return await verifyReportEvidence({ root, scan, report });
 }
 
 export function mergeStageReport({ overview = {}, modules = [], flows = [], riskResult = {} }) {
@@ -126,9 +127,9 @@ export function mergeStageReport({ overview = {}, modules = [], flows = [], risk
   };
 }
 
-function emitPartial(stage, state, packs, scan, onPartial) {
+async function emitPartial(root, stage, state, packs, scan, onPartial) {
   const contextPack = mergeContextPacks(packs);
-  onPartial({ stage, report: buildPartialReport({ stage, state, contextPack, scan }), contextPack: summarizeContextPack(contextPack) });
+  onPartial({ stage, report: await buildPartialReport({ root, stage, state, contextPack, scan }), contextPack: summarizeContextPack(contextPack) });
 }
 
 export function selectModuleCandidates(scan) {

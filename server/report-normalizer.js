@@ -153,6 +153,8 @@ function normalizeAnalysisQuality(quality, contextSummary, scan) {
     contextFiles: Array.isArray(quality?.contextFiles) ? quality.contextFiles : contextSummary?.files || [],
     skippedFiles: Array.isArray(quality?.skippedFiles) ? quality.skippedFiles : contextSummary?.skippedFiles || [],
     parseWarnings: Array.isArray(quality?.parseWarnings) ? quality.parseWarnings : [],
+    unsupportedClaims: Array.isArray(quality?.unsupportedClaims) ? quality.unsupportedClaims : [],
+    aiCalls: Array.isArray(quality?.aiCalls) ? quality.aiCalls : [],
     confidence: quality?.confidence || 'guess',
     tokenBudget: quality?.tokenBudget || estimateTokenBudget(budget)
   };
@@ -255,7 +257,7 @@ function normalizeEvidence(value, fallbackPaths = [], fallbackReason = '') {
   if (typeof value === 'string' && value.trim()) {
     return fallbackPaths.map((path) => ({ path, reason: value.trim(), confidence: 'guess' }));
   }
-  return fallbackPaths.map((path) => ({ path, reason: fallbackReason || '报告字段引用该文件', confidence: 'guess' }));
+  return [];
 }
 
 function toCodeReference(item) {

@@ -19,6 +19,7 @@
     "server/context-enrichment.js",
     "server/context-pack.js",
     "server/document-exporter.js",
+    "server/evidence-verifier.js",
     "server/flow-analyzer.js",
     "server/fs-utils.js",
     "server/ignore-rules.js",

@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { buildPartialReport, mergeStageReport, selectFlowCandidates, selectModuleCandidates, selectRiskFiles } from './analysis-job.js';
 
 const scan = {
@@ -52,7 +55,7 @@ test('selectRiskFiles prioritizes security and data related files', () => {
   assert.deepEqual(files, ['src/auth/service.ts']);
 });
 
-test('buildPartialReport marks normalized report as partial for current stage', () => {
+test('buildPartialReport marks normalized report as partial for current stage', async () => {
   const contextPack = {
     generatedAt: new Date().toISOString(),
     mode: 'overview',
@@ -63,7 +66,12 @@ test('buildPartialReport marks normalized report as partial for current stage', 
     skippedFiles: []
   };
 
-  const report = buildPartialReport({
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'codemap-ai-evidence-'));
+  await fs.mkdir(path.join(root, 'src'), { recursive: true });
+  await fs.writeFile(path.join(root, 'src/index.ts'), 'function main() {\n  return true;\n}\n', 'utf8');
+
+  const report = await buildPartialReport({
+    root,
     stage: 'overview',
     state: { overview: { projectOverview: { name: 'demo' } } },
     contextPack,
