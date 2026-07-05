@@ -11,6 +11,7 @@
     "bin/codemap-ai.js",
     "bin/cli-options.js",
     "server/ai.js",
+    "server/ai-errors.js",
     "server/ai-schemas.js",
     "server/analysis-job.js",
     "server/code-graph.js",

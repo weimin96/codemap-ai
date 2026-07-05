@@ -5,6 +5,8 @@ import { createOllama } from 'ollama-ai-provider-v2';
 import { AnalysisReportSchema, AskAnswerSchema, OverviewStageSchema, ModulesStageSchema, FlowsStageSchema, RisksStageSchema } from './ai-schemas.js';
 import { redactAiInput } from './redaction.js';
 
+import { AI_ERROR_CODES, AiError, classifyAiError, formatAiError } from './ai-errors.js';
+
 globalThis.AI_SDK_LOG_WARNINGS = false;
 
 const DEFAULT_AI_TIMEOUT_MS = 60_000;
@@ -178,7 +180,7 @@ async function generateStructuredWithFallback({ config, system, prompt, temperat
       }, timeoutMs, signal);
       return { ...result, object: withParseWarnings(result.object, parseWarnings), model, provider: candidate.provider, timeoutMs, parseWarnings };
     } catch (error) {
-      errors.push(`${candidate.provider}: ${error instanceof Error ? error.message : String(error)}`);
+      errors.push(`${candidate.provider}: ${formatAiError(error)}`);
     }
   }
   throw new Error(`All AI providers failed: ${errors.join(' | ')}`);
