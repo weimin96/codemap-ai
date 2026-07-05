@@ -68,7 +68,8 @@ function envConfig() {
     baseURL: process.env.CODEMAP_AI_BASE_URL || process.env.OPENAI_BASE_URL || defaultBaseURL(provider),
     model: process.env.CODEMAP_AI_MODEL || process.env.OPENAI_MODEL || defaultModel(provider),
     apiKey: process.env.CODEMAP_AI_API_KEY || process.env.OPENAI_API_KEY || '',
-    timeoutMs: process.env.CODEMAP_AI_TIMEOUT_MS || ''
+    timeoutMs: process.env.CODEMAP_AI_TIMEOUT_MS || '',
+    fallbackPolicy: process.env.CODEMAP_AI_FALLBACK_POLICY || 'local-only'
   };
 }
 

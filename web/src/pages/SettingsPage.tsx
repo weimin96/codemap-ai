@@ -12,7 +12,8 @@ const providerDefaults: Record<string, AiConfig> = {
     baseURL: '',
     model: 'auto',
     apiKey: '',
-    timeoutMs: 60000
+    timeoutMs: 60000,
+    fallbackPolicy: 'local-only'
   },
   'openai-compatible': {
     provider: 'openai-compatible',
@@ -170,6 +171,13 @@ export function SettingsPage({
         <Field label="API Key">
           <Input name="codemap-ai-api-key" value={config.apiKey} type="text" autoComplete="off" spellCheck={false} className="[-webkit-text-security:disc]" onChange={(event) => updateConfig({ ...config, apiKey: event.target.value })} />
         </Field>
+        {config.provider === 'auto' && <Field label="Fallback 策略">
+          <Select value={config.fallbackPolicy || 'local-only'} onChange={(event) => updateConfig({ ...config, fallbackPolicy: event.target.value })}>
+            <option value="local-only">仅本地</option>
+            <option value="confirm-cloud-fallback">切云端前确认</option>
+            <option value="cloud-ok">允许自动切云端</option>
+          </Select>
+        </Field>}
         <div className="grid grid-cols-2 gap-4">
           <Field label="请求超时">
             <Input value={String(config.timeoutMs || 60000)} type="number" min="1000" max="600000" step="1000" onChange={(event) => updateConfig({ ...config, timeoutMs: Number(event.target.value) })} />

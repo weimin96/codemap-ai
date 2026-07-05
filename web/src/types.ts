@@ -106,6 +106,7 @@ export interface AiConfig {
   model: string;
   apiKey: string;
   timeoutMs?: number | string;
+  fallbackPolicy?: 'local-only' | 'confirm-cloud-fallback' | 'cloud-ok' | string;
 }
 
 export interface RepoMap {

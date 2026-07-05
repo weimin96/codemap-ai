@@ -5,7 +5,7 @@ import { createOllama } from 'ollama-ai-provider-v2';
 import { AnalysisReportSchema, AskAnswerSchema, OverviewStageSchema, ModulesStageSchema, FlowsStageSchema, RisksStageSchema } from './ai-schemas.js';
 import { redactAiInput } from './redaction.js';
 
-import { AI_ERROR_CODES, AiError, classifyAiError, formatAiError } from './ai-errors.js';
+import { classifyAiError, formatAiError } from './ai-errors.js';
 
 globalThis.AI_SDK_LOG_WARNINGS = false;
 
@@ -57,7 +57,22 @@ function defaultBaseURL(provider) {
   return 'https://api.openai.com/v1';
 }
 
-const build\u0041iCallMetadata = (candidate, data) => ({ provider: candidate.provider, model: candidate.model || '', fallbackIndex: data.fallbackIndex, timeoutMs: data.timeoutMs });
+const build\u0041iCallMetadata = (candidate, data) => ({
+  provider: candidate.provider,
+  model: candidate.model || '',
+  endpointHost: hostFromBaseURL(candidate.baseURL || defaultBaseURL(candidate.provider)),
+  fallbackIndex: data.fallbackIndex,
+  timeoutMs: data.timeoutMs,
+  fallbackPolicy: candidate.fallbackPolicy || ''
+});
+
+function hostFromBaseURL(value) {
+  try {
+    return new URL(value || '').host;
+  } catch {
+    return '';
+  }
+}
 
 export async function analyzeWithAI({ scan, chunks, contextPack, config, signal }) {
   const prompt = buildAnalyzePrompt(scan, chunks, contextPack);
@@ -149,7 +164,7 @@ async function generateStageJson({ config, signal, prompt, expectedSchema, schem
     schemaName,
     expectedSchema
   });
-  return validate(withParseWarnings(result.object, result.parseWarnings));
+  return validate(attachCallLog(withParseWarnings(result.object, result.parseWarnings), result.callLog));
 }
 
 async function generateStructuredWithFallback({ config, system, prompt, temperature, signal, schema, schemaName, expectedSchema }) {
@@ -185,13 +200,18 @@ async function generateStructuredWithFallback({ config, system, prompt, temperat
           return repairedText;
         }
       }, timeoutMs, signal);
-      aiCalls.push(callMeta);
+      aiCalls.push({ ...callMeta, status: 'ok', durationMs: Date.now() - startedAt, usage: result.usage || null });
       return { ...result, object: withParseWarnings(result.object, parseWarnings), model, provider: candidate.provider, timeoutMs, parseWarnings, callLog: aiCalls };
     } catch (error) {
-      errors.push(`${candidate.provider}: ${formatAiError(error)}`);
+      const classified = classifyAiError(error);
+      aiCalls.push({ ...callMeta, status: 'error', durationMs: Date.now() - startedAt, errorCode: classified.code, retryable: classified.retryable });
+      errors.push(`${candidate.provider}: ${formatAiError(classified)}`);
+      if (!classified.retryable) break;
     }
   }
-  throw new Error(`All AI providers failed: ${errors.join(' | ')}`);
+  const error = new Error(`All AI providers failed: ${errors.join(' | ')}`);
+  error.callLog = aiCalls;
+  throw error;
 }
 
 async function generateObjectWithTimeout(args, timeoutMs, externalSignal) {

@@ -56,7 +56,8 @@ export async function startServer({ projectDir, port, host, serveWeb = true, acc
         baseURL: body.baseURL || current.baseURL,
         model: body.model || current.model,
         apiKey: body.apiKey === '********' ? current.apiKey : typeof body.apiKey === 'string' ? body.apiKey : current.apiKey,
-        timeoutMs: body.timeoutMs === undefined || body.timeoutMs === null ? current.timeoutMs : body.timeoutMs
+        timeoutMs: body.timeoutMs === undefined || body.timeoutMs === null ? current.timeoutMs : body.timeoutMs,
+        fallbackPolicy: typeof body.fallbackPolicy === 'string' ? body.fallbackPolicy : current.fallbackPolicy || 'local-only'
       };
       nextConfig.timeoutMs = resolveAiTimeoutMs(nextConfig);
       const saved = await writeConfig(nextConfig);
