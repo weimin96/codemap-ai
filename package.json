@@ -23,6 +23,7 @@
     "server/flow-analyzer.js",
     "server/fs-utils.js",
     "server/ignore-rules.js",
+    "server/redaction.js",
     "server/repo-map.js",
     "server/report-normalizer.js",
     "server/report-store.js",

@@ -11,6 +11,7 @@ import { readConfig, writeConfig, redactConfig } from './config-store.js';
 import { buildContextPack } from './context-pack.js';
 import { normalizeReport, summarizeContextPack } from './report-normalizer.js';
 import { enrichContext } from './context-enrichment.js';
+import { redactAiInput } from './redaction.js';
 import { readProjectReport, writeProjectReport } from './report-store.js';
 import { buildCodeGraph, findShortestPath } from './code-graph.js';
 import { buildDocumentSet } from './document-exporter.js';
@@ -254,7 +255,8 @@ export async function startServer({ projectDir, port, host, serveWeb = true, acc
       const config = await mergeRuntimeConfig(bodyConfig);
       const question = buildExplainQuestion(node, mode);
       const context = { mode, node, relatedEdges, warnings, businessLinks };
-      const answer = await askWithAI({ question, context, config });
+      const safeInput = redactAiInput({ question, context });
+      const answer = await askWithAI({ question: safeInput.question, context: safeInput.context, config });
       const explanation = formatExplainAnswer(answer);
       const payload = { explanation, answer, node, relatedEdges, warnings, businessLinks, generatedAt: new Date().toISOString() };
       await recordExplainCache(projectDir, { scopeKey, payload });
@@ -276,8 +278,9 @@ export async function startServer({ projectDir, port, host, serveWeb = true, acc
         await recordCodeGraph(projectDir, cache.codeGraph);
       }
       const enrichedContext = await enrichContext(projectDir, context, cache.codeGraph);
-      const answer = await askWithAI({ question: String(question), context: enrichedContext, config });
-      await recordAskThread(projectDir, { question: String(question), context: enrichedContext, answer });
+      const safeInput = redactAiInput({ question: String(question), context: enrichedContext });
+      const answer = await askWithAI({ question: safeInput.question, context: safeInput.context, config });
+      await recordAskThread(projectDir, { question: safeInput.question, context: safeInput.context, answer });
       res.json({ answer });
     } catch (error) { next(error); }
   });

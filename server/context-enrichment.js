@@ -1,4 +1,5 @@
 import { readTextFileSafe } from './fs-utils.js';
+import { isSensitivePath, redactAiContext, redactSensitiveText } from './redaction.js';
 
 export async function enrichContext(root, context, codeGraph = null) {
   const next = { ...context };
@@ -6,18 +7,21 @@ export async function enrichContext(root, context, codeGraph = null) {
   if (pathCandidates.length) {
     const rel = pathCandidates[0];
     const file = await readContextFile(root, rel, 'current file');
-    next.currentFile = { ...(context.currentFile || {}), path: rel, content: file.content, truncated: file.truncated };
-    const lines = file.content.split(/\r?\n/);
+    const redactionWarnings = [];
+    const safeContent = redactContextContent(rel, file.content, redactionWarnings);
+    next.currentFile = { ...(context.currentFile || {}), path: rel, content: safeContent, truncated: file.truncated || isSensitivePath(rel) };
+    const lines = safeContent.split(/\r?\n/);
+    if (redactionWarnings.length) next.redactionWarnings = [...(Array.isArray(next.redactionWarnings) ? next.redactionWarnings : []), ...redactionWarnings];
     if (context.selection?.startLine && context.selection?.endLine) {
       const start = Math.max(1, Number(context.selection.startLine));
       const end = Math.max(start, Number(context.selection.endLine));
-      next.selectedCode = lines.slice(start - 1, end).join('\n');
+      next.selectedCode = redactSensitiveText(lines.slice(start - 1, end).join('\n'), next.redactionWarnings || [], 'selectedCode');
     }
     if (context.currentSymbol?.startLine && context.currentSymbol?.endLine) {
       const start = Math.max(1, Number(context.currentSymbol.startLine));
       const end = Math.max(start, Number(context.currentSymbol.endLine));
       next.currentSymbol = context.currentSymbol;
-      next.symbolCode = lines.slice(start - 1, end).join('\n');
+      next.symbolCode = redactSensitiveText(lines.slice(start - 1, end).join('\n'), next.redactionWarnings || [], 'symbolCode');
     }
   }
 
@@ -26,7 +30,7 @@ export async function enrichContext(root, context, codeGraph = null) {
   if (Array.isArray(context.activeFlow?.steps)) {
     next.flowStepSnippets = await readFlowStepSnippets(root, context.activeFlow.steps);
   }
-  return next;
+  return redactAiContext(next);
 }
 
 function graphNeighborsForContext(graph, context) {
@@ -60,7 +64,7 @@ async function readFlowStepSnippets(root, steps) {
       symbol: step.symbol || '',
       startLine: paddedStart,
       endLine: paddedEnd,
-      code: lines.slice(paddedStart - 1, paddedEnd).join('\n')
+      code: redactContextContent(step.path, lines.slice(paddedStart - 1, paddedEnd).join('\n'), [])
     });
   }
   return snippets;
@@ -72,4 +76,12 @@ async function readContextFile(root, path, label) {
   } catch (error) {
     throw new Error(`Failed to enrich ${label} from ${path}: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+function redactContextContent(path, content, warnings) {
+  if (isSensitivePath(path)) {
+    warnings.push(`${path}: sensitive_path`);
+    return '[REDACTED:sensitive_path]';
+  }
+  return redactSensitiveText(content, warnings, path);
 }
