@@ -394,33 +394,24 @@ async function mergeRuntimeConfig(bodyConfig) {
 async function testAiConnection(config) {
   const provider = config.provider || 'openai-compatible';
   if (provider === 'auto') {
-    return { ok: true, provider, endpoint: 'auto fallback: ollama,openai-compatible,openrouter,openai', modelCount: 0, models: [] };
+    return { ok: false, provider, checks: [{ name: 'provider', ok: false, error: 'auto provider requires explicit profile before connection test' }], modelCount: 0, models: [] };
   }
   const baseURL = config.baseURL || defaultBaseURL(provider);
-  const candidates = provider === 'ollama' ? [joinProviderURL(baseURL, 'tags')] : buildModelsURLCandidates(baseURL, providerModelsURL(provider));
-  const headers = provider === 'ollama' ? {} : authHeaders(config.apiKey);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    let lastError = '';
-    for (const target of candidates) {
-      const response = await fetch(target, { headers, signal: controller.signal });
-      if (!response.ok) {
-        const text = await response.text();
-        const message = `${response.status} ${response.statusText}${text ? `: ${truncateBody(text)}` : ''}`;
-        if (response.status === 404 || response.status === 405) {
-          lastError = message;
-          continue;
-        }
-        throw new Error(message);
-      }
-      const data = await response.json().catch((error) => {
-        throw new Error(`Failed to parse response: ${error instanceof Error ? error.message : String(error)}`);
-      });
-      const models = extractModelIds(data);
-      return { ok: true, provider, endpoint: target, modelCount: models.length, models };
-    }
-    throw new Error(`All candidates failed: ${lastError || 'no candidates'}`);
+    const modelsCheck = await testModelsEndpoint({ provider, baseURL, config, signal: controller.signal });
+    const completionCheck = await testChatCompletion({ provider, baseURL, config, signal: controller.signal });
+    const structuredCheck = await testStructuredOutput({ provider, baseURL, config, signal: controller.signal });
+    const checks = [modelsCheck, completionCheck, structuredCheck];
+    return {
+      ok: checks.every((check) => check.ok || check.optional),
+      provider,
+      endpoint: completionCheck.endpoint || modelsCheck.endpoint || baseURL,
+      modelCount: modelsCheck.models?.length || 0,
+      models: modelsCheck.models || [],
+      checks
+    };
   } catch (error) {
     if (error?.name === 'AbortError') throw new Error(`连接超时：${baseURL}`);
     throw new Error(`连接失败：${error instanceof Error ? error.message : String(error)}`);
@@ -429,7 +420,64 @@ async function testAiConnection(config) {
   }
 }
 
+async function testModelsEndpoint({ provider, baseURL, config, signal }) {
+  const candidates = provider === 'ollama' ? [joinProviderURL(baseURL, 'tags')] : buildModelsURLCandidates(baseURL, providerModelsURL(provider));
+  const headers = provider === 'ollama' ? {} : authHeaders(config.apiKey);
+  let lastError = '';
+  for (const target of candidates) {
+    const response = await fetch(target, { headers, signal });
+    if (!response.ok) {
+      lastError = await responseError(response);
+      if (response.status === 404 || response.status === 405) continue;
+      return { name: 'models', ok: false, endpoint: target, error: lastError };
+    }
+    const data = await response.json();
+    const models = extractModelIds(data);
+    return { name: 'models', ok: true, endpoint: target, models };
+  }
+  return { name: 'models', ok: false, optional: true, endpoint: candidates[0] || baseURL, error: lastError || 'models endpoint is not available' };
+}
+
+async function testChatCompletion({ provider, baseURL, config, signal }) {
+  const target = provider === 'ollama' ? joinProviderURL(baseURL, 'chat') : joinProviderURL(baseURL, 'chat/completions');
+  const response = await fetch(target, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(provider === 'ollama' ? {} : authHeaders(config.apiKey)) },
+    body: JSON.stringify(buildCompletionTestBody(provider, config, 'ok')),
+    signal
+  });
+  if (!response.ok) return { name: 'completion', ok: false, endpoint: target, error: await responseError(response) };
+  return { name: 'completion', ok: true, endpoint: target };
+}
+
+async function testStructuredOutput({ provider, baseURL, config, signal }) {
+  const target = provider === 'ollama' ? joinProviderURL(baseURL, 'chat') : joinProviderURL(baseURL, 'chat/completions');
+  const response = await fetch(target, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(provider === 'ollama' ? {} : authHeaders(config.apiKey)) },
+    body: JSON.stringify(buildCompletionTestBody(provider, config, 'ok')),
+    signal
+  });
+  if (!response.ok) return { name: 'schema-output', ok: false, endpoint: target, error: await responseError(response) };
+  const data = await response.json();
+  const text = provider === 'ollama' ? data?.message?.content : data?.choices?.[0]?.message?.content;
+  return { name: 'schema-output', ok: String(text || '').length > 0, endpoint: target };
+}
+
 const COMPAT_SUFFIXES = ['/api/claudecode', '/api/anthropic', '/apps/anthropic', '/api/coding', '/claudecode', '/anthropic', '/step_plan', '/coding', '/claude'];
+
+function buildCompletionTestBody(provider, config, content) {
+  return { model: config.model || defaultModelForTest(provider), messages: [{ role: 'user', content }], stream: false };
+}
+
+function defaultModelForTest(provider) {
+  return provider === 'ollama' ? 'qwen2.5-coder:7b' : 'gpt-4.1-mini';
+}
+
+async function responseError(response) {
+  const text = await response.text();
+  return `${response.status} ${response.statusText}${text ? `: ${truncateBody(text)}` : ''}`;
+}
 
 function buildModelsURLCandidates(baseURL, modelsURL) {
   if (modelsURL) return [modelsURL];
