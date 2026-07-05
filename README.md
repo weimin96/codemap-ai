@@ -2,7 +2,9 @@
   <img src="./web/public/brand/codemap-ai-logo.svg" alt="codemap-ai logo" width="96" />
 </p>
 
-# codemap-ai
+<h1 align="center">
+  CodeMap-Ai
+</h1>
 
 <p align="center">
   把本地代码仓库转成可验证的项目接管地图。
@@ -24,30 +26,13 @@
   <a href="https://nodejs.org"><img alt="Node.js" src="https://img.shields.io/node/v/@codemapai/codemap-ai"></a>
 </p>
 
-codemap-ai 是一个本地 AI 项目接管工作台。它扫描指定目录，生成项目总览、模块地图、核心链路、数据模型、风险雷达、代码证据和 JS/TS Code Graph，并把追问绑定到当前文件、选区、符号、链路或风险。
-
-npm 包名为 `@codemapai/codemap-ai`。主 CLI 是 `codemap-ai`。
-
-## Table of content
-
-- [About](#about)
-- [Examples](#examples)
-- [Installation](#installation)
-- [Usage](#usage)
-- [AI providers](#ai-providers)
-- [Workbench](#workbench)
-- [How it works](#how-it-works)
-- [Export](#export)
-- [Development](#development)
-- [Release](#release)
-- [Security and local data](#security-and-local-data)
-- [Current limits](#current-limits)
+CodeMap-Ai 是一个本地 AI 项目接管工作台。它扫描指定目录，生成项目总览、模块地图、核心链路、数据模型、风险雷达、代码证据和 JS/TS Code Graph，并把追问绑定到当前文件、选区、符号、链路或风险。
 
 ## About
 
 大型项目经过多轮 AI 修改后，接手人通常需要先搞清楚入口、模块边界、核心流程、数据读写和风险点。codemap-ai 的目标不是替代人工审查，而是先生成一版可以验证的项目地图，让阅读顺序、代码证据和后续追问有明确上下文。
 
-codemap-ai 当前版本为 `0.2.0`，核心能力包括：
+核心能力包括：
 
 - 本地目录扫描、入口识别、模块候选和 Repo Map。
 - AI 项目报告：总览、模块、链路、数据模型、风险、阅读路线和证据索引。
@@ -114,6 +99,8 @@ Explain 不提供 Explain All，避免高成本批量推断和不可验证结论
 ```bash
 npm install -g @codemapai/codemap-ai
 ```
+
+## Dev
 
 本地打包验证：
 
